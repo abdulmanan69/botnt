@@ -6,12 +6,17 @@
 #
 #   $env:COOLIFY_TOKEN = "1|...."
 #   ./tools/coolify-deploy.ps1 -App uwkoh6ttkcrxdwasfznsyfrj
-#   ./tools/coolify-deploy.ps1 -App uwkoh6ttkcrxdwasfznsyfrj -Fqdn http://uwkoh6ttkcrxdwasfznsyfrj.76.13.223.28.sslip.io
+#   ./tools/coolify-deploy.ps1 -App uwkoh6ttkcrxdwasfznsyfrj -ComposeService phantom `
+#       -Fqdn https://botnt.becxus.cloud
+#
+# Compose applications keep their domain in docker_compose_domains, so pass
+# -ComposeService for those (-Fqdn alone is rejected by the API).
 #
 # The instance allowlists /api/v1 by IP (Settings -> Advanced -> Allowed IPs).
 param(
     [Parameter(Mandatory = $true)][string]$App,
     [string]$Fqdn,
+    [string]$ComposeService,
     [string]$Token = $env:COOLIFY_TOKEN,
     [string]$Endpoint = "http://76.13.223.28:8000",
     [switch]$DryRun
@@ -29,10 +34,16 @@ $current = Invoke-RestMethod -Uri $api -Headers $headers -TimeoutSec 30
 Write-Host "    name=$($current.name) fqdn=$($current.fqdn) ports=$($current.ports_exposes)"
 
 if ($Fqdn) {
-    $patch = @{ fqdn = $Fqdn; ports_exposes = "80" } | ConvertTo-Json
+    $body = @{ ports_exposes = "80" }
+    if ($ComposeService) {
+        $body.docker_compose_domains = @(@{ name = $ComposeService; domain = $Fqdn })
+    } else {
+        $body.fqdn = $Fqdn
+    }
+    $patch = $body | ConvertTo-Json -Depth 6
     if ($DryRun) { Write-Host "[dry] PATCH $patch" }
     else {
-        Write-Host "[*] setting fqdn=$Fqdn ports_exposes=80"
+        Write-Host "[*] setting domain=$Fqdn ports_exposes=80"
         Invoke-RestMethod -Uri $api -Method Patch -Headers $headers `
             -ContentType "application/json" -Body $patch -TimeoutSec 30 | Out-Null
     }
@@ -40,9 +51,11 @@ if ($Fqdn) {
 
 if ($DryRun) { Write-Host "[dry] POST $Endpoint/api/v1/deploy?uuid=$App&force=1"; return }
 
+# Coolify answers 405 when this is sent as GET.
 Write-Host "[*] triggering deploy"
-$deploy = Invoke-RestMethod -Uri "$Endpoint/api/v1/deploy?uuid=$App&force=1" -Headers $headers -TimeoutSec 60
-$deploy.deployments | ForEach-Object { "    deployment " + $_.message + " " + $_.resource_uuid }
+$deploy = Invoke-RestMethod -Uri "$Endpoint/api/v1/deploy?uuid=$App&force=1" -Method Post `
+    -Headers $headers -TimeoutSec 60
+$deploy.deployments | ForEach-Object { "    deployment " + $_.message + " " + $_.deployment_uuid }
 
 if ($Fqdn) {
     $probe = ($Fqdn -replace "/$", "") + "/healthz"

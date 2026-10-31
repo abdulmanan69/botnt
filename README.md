@@ -158,9 +158,13 @@ deploy) and then polls `/healthz` until the new build answers:
 
 ```sh
 export COOLIFY_TOKEN="<token with read+write+deploy>"
-./tools/coolify-deploy.ps1 -App uwkoh6ttkcrxdwasfznsyfrj \
-  -Fqdn http://uwkoh6ttkcrxdwasfznsyfrj.76.13.223.28.sslip.io
+./tools/coolify-deploy.ps1 -App uwkoh6ttkcrxdwasfznsyfrj -ComposeService phantom \
+  -Fqdn https://botnt.becxus.cloud
 ```
+
+The deploy call is a `POST` — Coolify answers `405` for `GET`. Compose apps keep
+their domain in `docker_compose_domains` (the `fqdn` field is rejected for them),
+which is what `-ComposeService` sends.
 
 Without a token: push to the tracked branch and press **Deploy** in the Coolify
 UI, or enable the GitHub webhook for the app so a push auto-deploys. Verify with
