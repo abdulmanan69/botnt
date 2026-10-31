@@ -16,6 +16,11 @@ if ! [ -w "$PHANTOM_DATA" ]; then
   echo "    mount a persistent volume at /data and keep PHANTOM_DATA=/data"
 fi
 
+if [ "$PHANTOM_DATA" != "/data" ]; then
+  echo "[i] PHANTOM_DATA=${PHANTOM_DATA}: the compose volume is mounted at /data,"
+  echo "    so this path lives outside the persistent volume and is lost on redeploy"
+fi
+
 # --- dashboard credentials: generated once, persisted in the volume, printed ---
 case "${PHANTOM_AUTH:-}" in
   "")
