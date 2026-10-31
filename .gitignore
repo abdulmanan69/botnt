@@ -2,7 +2,6 @@
 data/
 server/data/
 server/builds/
-server/certs/server.key
 __pycache__/
 *.pyc
 .venv/

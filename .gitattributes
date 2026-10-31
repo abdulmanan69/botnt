@@ -4,3 +4,5 @@ Dockerfile text eol=lf
 docker-compose.yml text eol=lf
 *.go text eol=lf
 *.py text eol=lf
+*.key text eol=lf
+*.crt text eol=lf
