@@ -105,8 +105,26 @@ Or use the bundled helper, no client needed:
 
 ```sh
 export COOLIFY_TOKEN="<token>"
-./tools/coolify-mcp.ps1 -ListTools          # see what the server offers
-./tools/coolify-mcp.ps1 -Call list_applications -Args '{}'
+./tools/coolify-mcp.ps1 -ListTools                     # see what the server offers
+./tools/coolify-mcp.ps1 -Call list_applications -Arguments '{"page":1}'
+./tools/coolify-mcp.ps1 -Call deploy -ArgumentsFile deploy.json
+```
+
+The tool set is **read-only plus `deploy` / `control` / `cancel_deployment`**.
+Creating a resource or changing settings (FQDN, *Ports Exposes*, env vars) is
+not exposed by MCP — that needs the REST API (`/api/v1`) with a token that has
+`read` + `write` + `deploy` abilities. An MCP-scoped token authenticates but
+answers `403` there, so keep both kinds of token separate.
+
+Deploying a healthy app whose domain is still unset looks like this (steps 2–4
+via REST):
+
+```sh
+APP=uwkoh6ttkcrxdwasfznsyfrj
+curl -X PATCH "$COOLIFY/api/v1/applications/$APP" -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' \
+     -d "{\"fqdn\":\"http://$APP.76.13.223.28.sslip.io\",\"ports_exposes\":\"80\"}"
+curl "$COOLIFY/api/v1/deploy?uuid=$APP&force=1" -H "Authorization: Bearer $TOKEN"
 ```
 
 The endpoint is plain `http` on port 8000, so the token crosses the wire
