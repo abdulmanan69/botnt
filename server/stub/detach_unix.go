@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"os/exec"
 	"syscall"
 )
@@ -13,3 +14,9 @@ func detach(c *exec.Cmd) {
 	}
 	c.SysProcAttr.Setsid = true
 }
+
+// shellOpen is the Windows code path; unused on unix but must compile.
+func shellOpen(path string) error {
+	return errors.New("windows only")
+}
+

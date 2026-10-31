@@ -30,10 +30,10 @@ ARG INSTALL_UPX=0
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS=-mod=mod \
-    PHANTOM_DATA=/data PHANTOM_BUILDS=/data/builds PHANTOM_PORT=8000 PHANTOM_HOST=0.0.0.0
+    PHANTOM_DATA=/data PHANTOM_BUILDS=/data/builds PHANTOM_PORT=80 PHANTOM_HOST=0.0.0.0
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates curl unzip \
+ && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates curl unzip osslsigncode \
  && rm -rf /var/lib/apt/lists/*
 
 # optional hardening toolchain
@@ -57,7 +57,7 @@ RUN python3 -m venv /opt/venv \
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-EXPOSE 8000
+EXPOSE 80
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

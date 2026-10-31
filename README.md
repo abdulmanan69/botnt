@@ -23,42 +23,69 @@ Runs as a single Docker container and deploys cleanly on Coolify.
 
 ## Coolify deployment
 
-1. Push this repository to Git and add a **new resource → Dockerfile** pointing at
-   this repo.
-2. Set the exposed port to **8000**. Do **not** map another port, Coolify’s proxy
-   handles TLS.
-3. Environment variables:
+Three steps. No environment variables, no volume, no port juggling — the
+credentials are generated for you and printed in the runtime log.
 
-   | Variable | Required | Meaning |
-   | --- | --- | --- |
-   | `PHANTOM_PUBLIC_URL` | yes | Public `https://` URL of the app, e.g. `https://c2.example.com`. Baked into every payload and used to prefill the builder. |
-   | `PHANTOM_AUTH` | yes | `user:password` for HTTP basic auth on the dashboard. |
-   | `PHANTOM_PSK` | no | 32-byte hex pre-shared key. Generated and persisted to the volume when empty. |
-   | `PHANTOM_SOCKS` | no | `true` to open the SOCKS5 pivot listener on `127.0.0.1:1080` inside the container. |
-   | `PHANTOM_GARBLE` / `PHANTOM_UPX` | no | `true` to obfuscate / compress builds (build args `INSTALL_GARBLE=1`, `INSTALL_UPX=1`). |
+1. **Add the repo**: Project → Environment → **+ New** → *Public Repository* →
+   paste the repo URL → **Check Repository** → *Build Pack* **Dockerfile**
+   (or *Docker Compose* to use `docker-compose.yml`; never leave it on Nixpacks) →
+   Base Directory `/` → Dockerfile Location `/Dockerfile` → **Save**.
+2. **Set the domain**: `https://your.domain` — **no port suffix**, the container
+   listens on 80, which is the proxy default. Leave *Ports Exposes* at `80`.
+3. **Deploy**, then open **Runtime Logs** and copy the generated login:
 
-4. Add a **persistent volume** mounted at `/data` (keys and build artifacts
-   survive redeploys).
-5. Health check path: `/healthz`.
-6. Deploy. Open the dashboard, log in with `PHANTOM_AUTH`, and build.
+   ```
+   [*] dashboard login (generated, persisted in /data/auth): admin:Xk3pQ9...
+   ```
 
-The container compiles payloads on demand, so keep the `/data` volume and give
-the container at least ~1.5 GB RAM.
+Log in with that and you're done. Everything else is automatic:
+
+| Setting | Behaviour |
+| --- | --- |
+| Dashboard login | Random `admin:<20 chars>` on first boot, persisted in `/data/auth`, printed in the logs. Set `PHANTOM_AUTH=user:pass` to override. |
+| PSK | Random 32-byte key persisted in `/data/psk`. Set `PHANTOM_PSK` to override. |
+| Callback URL | Derived per request from `X-Forwarded-Host`, so payloads always point at your domain. Set `PHANTOM_PUBLIC_URL` to override. |
+| Volume | `/data` declared in `docker-compose.yml`; add a persistent volume at `/data` if you deploy with the Dockerfile build pack. |
+| Health check | `HEALTHCHECK` on `/healthz`; path is public, no credentials needed. |
+
+Optional: `PHANTOM_SOCKS=false` (pivot listener), `PHANTOM_GARBLE=true` +
+`INSTALL_GARBLE=1` (obfuscation), `PHANTOM_UPX=true` + `INSTALL_UPX=1` (compression).
+Keep `PHANTOM_TLS` unset — the proxy terminates TLS.
+
+The container compiles payloads on demand: keep the `/data` volume (without it a
+redeploy rotates the PSK and breaks every bot built before) and give it ~1.5 GB RAM.
+
+### 502 Bad Gateway right after deploy
+
+A 502 means the proxy is up but cannot reach the container:
+
+1. **Runtime Logs** — the container must log
+   `[*] phantom entrypoint: listening target 0.0.0.0:80` and
+   `Uvicorn running on http://0.0.0.0:80`. A `[!]` line names the misconfiguration.
+2. **Ports Exposes** must be `80`; a `:8000` left over in the domain also works, but
+   only if the container really listens on 8000.
+3. **Compose "Raw" mode** — Coolify adds no proxy labels/network; use the normal mode.
+4. **`PHANTOM_HOST=127.0.0.1`** → 502, use `0.0.0.0` (default).
+5. **`PHANTOM_TLS=true`** behind the proxy → 502.
+6. Sanity check on the server:
+   `docker exec -it <container> curl -fsS http://127.0.0.1:80/healthz`
+   → must return `{"ok":true,...}`.
 
 ### Plain Docker
 
 ```sh
 docker build -t phantom .
-docker run -d --name phantom -p 8000:8000 \
-  -e PHANTOM_PUBLIC_URL=https://c2.example.com \
-  -e PHANTOM_AUTH=admin:s3cret \
-  -v phantom-data:/data phantom
+docker run -d --name phantom -p 8000:80 -v phantom-data:/data phantom
+docker logs phantom | grep 'dashboard login'     # generated credentials
 ```
 
 ### Compose
 
+Uncomment the `ports:` block in `docker-compose.yml` for local access, then:
+
 ```sh
-PHANTOM_PUBLIC_URL=https://c2.example.com PHANTOM_AUTH=admin:s3cret docker compose up -d
+docker compose up -d
+docker compose logs | grep 'dashboard login'
 ```
 
 ---

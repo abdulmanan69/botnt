@@ -3,9 +3,10 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -26,17 +27,80 @@ var (
 )
 
 type mediaFrame struct {
-	SessionID string `json:"session_id"`
-	Kind      string `json:"kind"` // cam | mic
-	Seq       int    `json:"seq"`
-	B64       string `json:"b64"`
-	Fmt       string `json:"fmt"` // jpeg | pcm
-	Note      string `json:"note,omitempty"`
+	Kind string
+	Seq  int
+	Fmt  string
+	Data []byte
 }
 
-func pushMedia(f mediaFrame) {
-	f.SessionID = sid()
-	postJSON("/api/media/push", f)
+// pushFrame sends media bytes as the raw request body — no base64 anywhere.
+func pushFrame(f mediaFrame) {
+	url := fmt.Sprintf("%s/api/media/push?sid=%s&kind=%s&seq=%d&fmt=%s",
+		serverURL, urlq(sid()), f.Kind, f.Seq, f.Fmt)
+	ctype := "application/octet-stream"
+	if f.Fmt == "jpeg" {
+		ctype = "image/jpeg"
+	}
+	postRaw(url, f.Data, ctype)
+}
+
+func urlq(s string) string {
+	return strings.ReplaceAll(s, " ", "%20")
+}
+
+// postRaw posts a binary body, discarding the response.
+func postRaw(url string, body []byte, ctype string) {
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", ctype)
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+}
+
+// uploadBlob stores a capture server-side and returns its URL.
+func uploadBlob(kind, name string, body []byte) (string, error) {
+	url := fmt.Sprintf("%s/api/media/upload?sid=%s&kind=%s&name=%s",
+		serverURL, urlq(sid()), kind, urlq(name))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", err
+	}
+	if out.URL == "" {
+		return "", fmt.Errorf("upload rejected")
+	}
+	return out.URL, nil
+}
+
+// uploadResult wraps an upload into a Result containing a JSON link.
+func uploadResult(kind, name string, body []byte) Result {
+	u, err := uploadBlob(kind, name, body)
+	if err != nil {
+		return Result{OK: false, Err: err.Error()}
+	}
+	b, _ := json.Marshal(map[string]interface{}{
+		"kind": kind, "name": name, "url": u, "size": len(body)})
+	return Result{OK: true, Out: string(b)}
 }
 
 func ffmpegBin() string {
@@ -180,8 +244,7 @@ func readJPEGStream(r io.Reader, cancel chan struct{}, device string) {
 			continue
 		}
 		seq++
-		pushMedia(mediaFrame{Kind: "cam", Seq: seq, Fmt: "jpeg",
-			B64: base64.StdEncoding.EncodeToString(frame), Note: device})
+		pushFrame(mediaFrame{Kind: "cam", Seq: seq, Fmt: "jpeg", Data: frame})
 	}
 }
 
@@ -304,8 +367,7 @@ func micStreamStart(device string) Result {
 			n, err := io.ReadFull(stdout, buf)
 			if n > 0 {
 				seq++
-				pushMedia(mediaFrame{Kind: "mic", Seq: seq, Fmt: "pcm",
-					B64: base64.StdEncoding.EncodeToString(buf[:n])})
+				pushFrame(mediaFrame{Kind: "mic", Seq: seq, Fmt: "pcm", Data: buf[:n]})
 			}
 			if err != nil {
 				return

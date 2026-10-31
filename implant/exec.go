@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -201,7 +202,7 @@ func download(path string) Result {
 	if err != nil {
 		return Result{OK: false, Err: err.Error()}
 	}
-	return Result{OK: true, Out: base64.StdEncoding.EncodeToString(b)}
+	return uploadResult("file", filepath.Base(path), b)
 }
 
 func upload(path, b64 string) Result {

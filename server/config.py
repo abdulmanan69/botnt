@@ -47,7 +47,7 @@ def psk_hex() -> str:
         val = store.read_text().strip()
         if len(val) == 64:
             return val
-    val = DEFAULT_PSK if _bool(os.environ.get("PHANTOM_DEFAULT_PSK"), True) else secrets.token_hex(32)
+    val = DEFAULT_PSK if _bool(os.environ.get("PHANTOM_DEFAULT_PSK"), False) else secrets.token_hex(32)
     store.write_text(val)
     try:
         os.chmod(store, 0o600)
@@ -87,6 +87,13 @@ def load() -> dict:
         "garble": _bool(os.environ.get("PHANTOM_GARBLE"), _bool(builder.get("garble"), False)),
         "upx": _bool(os.environ.get("PHANTOM_UPX"), _bool(builder.get("upx"), False)),
         "public_url": os.environ.get("PHANTOM_PUBLIC_URL", builder.get("public_url", "")),
+        "vendor": os.environ.get("PHANTOM_VENDOR", builder.get("vendor", "Microsoft Corporation")),
+        "encrypt_payload": _bool(os.environ.get("PHANTOM_ENCRYPT"),
+                                 _bool(builder.get("encrypt_payload"), True)),
+        "metadata": _bool(os.environ.get("PHANTOM_METADATA"),
+                          _bool(builder.get("metadata"), True)),
+        "sign_pfx": os.environ.get("PHANTOM_SIGN_PFX", builder.get("sign_pfx", "")),
+        "sign_pass": os.environ.get("PHANTOM_SIGN_PASS", builder.get("sign_pass", "")),
     })
 
     return {
