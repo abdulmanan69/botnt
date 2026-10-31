@@ -1,0 +1,23 @@
+# runtime data
+data/
+server/data/
+server/builds/
+server/certs/server.key
+__pycache__/
+*.pyc
+.venv/
+
+# toolchains / artifacts
+*.exe
+*.ko
+*.o
+rootkit/.tmp_versions/
+rootkit/*.mod
+rootkit/*.order
+rootkit/*.cmd
+
+# editors
+.vscode/
+.idea/
+*.log
+.DS_Store

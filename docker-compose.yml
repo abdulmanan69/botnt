@@ -1,0 +1,28 @@
+services:
+  phantom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000"
+    environment:
+      # public https URL the bots dial back to (set this to your coolify domain)
+      PHANTOM_PUBLIC_URL: ${PHANTOM_PUBLIC_URL:-https://c2.example.com}
+      # dashboard credentials – CHANGE THIS
+      PHANTOM_AUTH: ${PHANTOM_AUTH:-admin:changeme}
+      # 32-byte hex PSK shared with the implants (leave empty to auto-generate)
+      PHANTOM_PSK: ${PHANTOM_PSK:-}
+      PHANTOM_PORT: "8000"
+      PHANTOM_SOCKS: "true"
+    volumes:
+      - phantom-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  phantom-data:
