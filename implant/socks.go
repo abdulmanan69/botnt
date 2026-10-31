@@ -27,15 +27,41 @@ var (
 	socksOn    bool
 )
 
-func startSocks() {
+func startSocks() Result {
 	socksMu.Lock()
 	if socksOn {
 		socksMu.Unlock()
-		return
+		return Result{OK: true, Out: "socks agent already running"}
 	}
 	socksOn = true
 	socksMu.Unlock()
 	go socksLoop()
+	return Result{OK: true, Out: "socks agent started"}
+}
+
+func stopSocks() Result {
+	socksMu.Lock()
+	if !socksOn {
+		socksMu.Unlock()
+		return Result{OK: true, Out: "socks agent not running"}
+	}
+	socksOn = false
+	conns := socksConns
+	socksConns = map[string]net.Conn{}
+	socksMu.Unlock()
+	for _, c := range conns {
+		c.Close()
+	}
+	return Result{OK: true, Out: "socks agent stopped"}
+}
+
+func socksStatus() Result {
+	socksMu.Lock()
+	defer socksMu.Unlock()
+	if socksOn {
+		return Result{OK: true, Out: fmt.Sprintf("running · %d tunnel(s)", len(socksConns))}
+	}
+	return Result{OK: true, Out: "stopped"}
 }
 
 func postJSON(path string, v interface{}) ([]byte, error) {
@@ -65,6 +91,12 @@ func socksGet(cid string) net.Conn {
 
 func socksLoop() {
 	for {
+		socksMu.Lock()
+		on := socksOn
+		socksMu.Unlock()
+		if !on {
+			return
+		}
 		raw, err := postJSON("/socks/poll", map[string]interface{}{
 			"session_id": sid(), "timeout": 25,
 		})

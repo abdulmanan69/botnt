@@ -13,3 +13,7 @@ func keylogStop() Result {
 func keylogDump(clear bool) Result {
 	return Result{OK: true, Out: "(empty)"}
 }
+
+func keylogStatus() Result {
+	return Result{OK: true, Out: "unsupported on this OS"}
+}

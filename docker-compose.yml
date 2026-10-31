@@ -37,6 +37,7 @@ services:
       PHANTOM_CERT: ${PHANTOM_CERT:-/app/server/certs/server.crt}
       PHANTOM_KEY: ${PHANTOM_KEY:-/app/server/certs/server.key}
       PHANTOM_LOG: ${PHANTOM_LOG:-info}               # debug | info | warning | error
+      PHANTOM_SEED: ${PHANTOM_SEED:-0}                # >0 seeds N demo sessions on first boot
 
       # ---- credentials ----------------------------------------------------
       PHANTOM_AUTH: ${PHANTOM_AUTH:-}                 # user:password, empty -> generated + persisted

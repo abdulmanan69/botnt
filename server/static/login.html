@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>Sign in · Phantom</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.8l7.5 3v6c0 4.6-3.2 7.8-7.5 9.4-4.3-1.6-7.5-4.8-7.5-9.4v-6l7.5-3z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.5L21.5 20h-19L12 3.5z"/><path d="M12 9.5V14"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="8" r=".9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h1M8 14h8"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5L4 13.5h6L9.5 21.5 20 10h-6.5l0-7.5z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5"/></symbol>
+</svg>
+
+<div class="login-page">
+  <section class="login-art">
+    <div class="brand"><span class="mark">P</span> Phantom</div>
+    <div>
+      <h1>Command and control, without the noise.</h1>
+      <p>Encrypted beaconing, cross-compiled implants and a single pane of glass for every
+        host you are responsible for.</p>
+    </div>
+    <div class="facts">
+      <span><span class="dot online"></span> AES-256-GCM beacon channel</span>
+      <span><span class="dot"></span> Live camera, microphone and keystrokes</span>
+      <span><span class="dot"></span> Audit trail survives restarts</span>
+    </div>
+  </section>
+
+  <section class="login-form">
+    <form class="login-box" id="login" autocomplete="on">
+      <div>
+        <div class="eyebrow">Restricted access</div>
+        <h2>Sign in to the control plane</h2>
+        <p class="lead">Use the operator credentials printed in the container logs on first boot.</p>
+      </div>
+
+      <div class="login-err" id="err" role="alert">
+        <svg class="ico"><use href="#i-warn"/></svg><span id="err-text">Sign-in failed.</span>
+      </div>
+
+      <label class="field"><span>Operator</span>
+        <input class="inp" id="user" name="username" autocomplete="username" spellcheck="false" required>
+      </label>
+
+      <label class="field"><span>Password</span>
+        <div class="search">
+          <input class="inp" id="pass" name="password" type="password" autocomplete="current-password" required>
+          <button class="iconbtn" id="reveal" type="button" title="Show password"
+            style="position:absolute;right:2px;top:50%;translate:0 -50%">
+            <svg class="ico"><use href="#i-eye"/></svg>
+          </button>
+        </div>
+      </label>
+
+      <label class="tgl"><input type="checkbox" id="remember" checked> Keep me signed in on this device</label>
+
+      <button class="btn primary wide" id="go" type="submit">Sign in</button>
+
+      <div class="login-note">
+        <svg class="ico"><use href="#i-info"/></svg>
+        <span>The login is generated once per deployment and stored in the <code>/data/auth</code>
+          volume. Set <code>PHANTOM_AUTH=user:pass</code> to choose your own.</span>
+      </div>
+
+      <div class="login-foot">
+        <span>Phantom C2</span><span>·</span><span>httpOnly cookie · 7 days when remembered</span>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script type="module" src="/login.js"></script>
+</body>
+</html>
