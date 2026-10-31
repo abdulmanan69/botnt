@@ -71,6 +71,22 @@ A 502 means the proxy is up but cannot reach the container:
    `docker exec -it <container> curl -fsS http://127.0.0.1:80/healthz`
    → must return `{"ok":true,...}`.
 
+### Deployment fails before the build: `mkdir: can't create directory .../Dockerfile`
+
+```
+[CMD]: docker exec ... mkdir -p /artifacts/<id>/Dockerfile
+mkdir: can't create directory '/artifacts/<id>/Dockerfile': File exists
+```
+
+Coolify concatenates `Base Directory` onto its work directory and runs `mkdir -p` on
+that path. `mkdir -p` fails when the path is an existing **file**, so a
+`Base Directory` of `/Dockerfile` breaks every deploy of this repo. Use:
+
+| Field | Value |
+| --- | --- |
+| Base Directory | `/` (leave it as the default slash, *not* `/Dockerfile`) |
+| Dockerfile Location | `/Dockerfile` |
+
 ### Plain Docker
 
 ```sh
