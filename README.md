@@ -127,6 +127,26 @@ curl -X PATCH "$COOLIFY/api/v1/applications/$APP" -H "Authorization: Bearer $TOK
 curl "$COOLIFY/api/v1/deploy?uuid=$APP&force=1" -H "Authorization: Bearer $TOKEN"
 ```
 
+Two instance-level traps hit during the first real deploy:
+
+* **`/api/v1` is IP-allowlisted** (`Settings → Advanced → Allowed IPs`). With a
+  list set, a foreign IP gets `403 {"message":"You are not allowed to access the
+  API."}` while `/mcp` keeps working, which looks like a broken token. Add the
+  caller's IP, or put `0.0.0.0` in the field to allow all.
+* **Compose applications take their domain from `docker_compose_domains`, not
+  `fqdn`** — the API rejects `domains` for `dockercompose` and refuses
+  `docker_compose_domains` until the compose file has been loaded from git. The
+  working payload maps the service name to the URL:
+
+  ```json
+  {"ports_exposes":"80",
+   "docker_compose_domains":[{"name":"phantom","domain":"http://<uuid>.76.13.223.28.sslip.io"}]}
+  ```
+
+  Coolify then materialises every `PHANTOM_*` variable from `docker-compose.yml`
+  into the app's environment (visible in the UI, defaults pre-filled) and
+  injects them as build args, which is why a redeploy is required afterwards.
+
 The endpoint is plain `http` on port 8000, so the token crosses the wire
 unencrypted — fine on a trusted network, otherwise put Coolify behind TLS.
 
