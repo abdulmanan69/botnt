@@ -1,6 +1,9 @@
 .git
 .gitignore
 .github
+.env
+.env.*
+!.env.example
 data/
 server/builds/
 server/data/
@@ -18,5 +21,4 @@ rootkit/*.mod
 rootkit/*.order
 rootkit/*.cmd
 rootkit/.tmp_versions
-tools/
 README.md

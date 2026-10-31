@@ -23,16 +23,23 @@ Runs as a single Docker container and deploys cleanly on Coolify.
 
 ## Coolify deployment
 
-Three steps. No environment variables, no volume, no port juggling — the
-credentials are generated for you and printed in the runtime log.
+One click, one optional env var. Coolify renders the whole settings form for
+you: `docker-compose.yml` declares every knob with a working default, so the
+**Environment Variables** tab comes pre-filled and you only change what you
+want. Nothing has to be set — credentials, PSK and callback URL are handled
+automatically.
 
 1. **Add the repo**: Project → Environment → **+ New** → *Public Repository* →
-   paste the repo URL → **Check Repository** → *Build Pack* **Dockerfile**
-   (or *Docker Compose* to use `docker-compose.yml`; never leave it on Nixpacks) →
-   Base Directory `/` → Dockerfile Location `/Dockerfile` → **Save**.
-2. **Set the domain**: `https://your.domain` — **no port suffix**, the container
+   paste the repo URL → **Check Repository** → *Build Pack* **Docker Compose**
+   (or **Dockerfile** with Base Directory `/` and Dockerfile Location
+   `/Dockerfile`; never leave it on Nixpacks) → **Save**.
+2. **Environment Variables** (optional): the tab already lists all settings with
+   defaults. Fill only what you want, e.g. `PHANTOM_AUTH=admin:MyStrongPass`.
+   To set everything at once, paste the contents of [`.env.example`](.env.example)
+   into the *Developer view* box and edit it there.
+3. **Set the domain**: `https://your.domain` — **no port suffix**, the container
    listens on 80, which is the proxy default. Leave *Ports Exposes* at `80`.
-3. **Deploy**, then open **Runtime Logs** and copy the generated login:
+4. **Deploy**, then open **Runtime Logs** and copy the generated login:
 
    ```
    [*] dashboard login (generated, persisted in /data/auth): admin:Xk3pQ9...
@@ -40,17 +47,36 @@ credentials are generated for you and printed in the runtime log.
 
 Log in with that and you're done. Everything else is automatic:
 
-| Setting | Behaviour |
-| --- | --- |
-| Dashboard login | Random `admin:<20 chars>` on first boot, persisted in `/data/auth`, printed in the logs. Set `PHANTOM_AUTH=user:pass` to override. |
-| PSK | Random 32-byte key persisted in `/data/psk`. Set `PHANTOM_PSK` to override. |
-| Callback URL | Derived per request from `X-Forwarded-Host`, so payloads always point at your domain. Set `PHANTOM_PUBLIC_URL` to override. |
-| Volume | `/data` declared in `docker-compose.yml`; add a persistent volume at `/data` if you deploy with the Dockerfile build pack. |
-| Health check | `HEALTHCHECK` on `/healthz`; path is public, no credentials needed. |
+| Setting | Default behaviour | Env var |
+| --- | --- | --- |
+| Dashboard login | Random `admin:<20 chars>` on first boot, persisted in `/data/auth`, printed in the logs | `PHANTOM_AUTH=user:pass` |
+| PSK | Random 32-byte key persisted in `/data/psk` | `PHANTOM_PSK` (64 hex chars) |
+| Callback URL | Derived per request from `X-Forwarded-Host`, so payloads always point at your domain | `PHANTOM_PUBLIC_URL` |
+| Volume | Named volume mounted at `/data`, holds auth, PSK, builds and blobs | `PHANTOM_DATA` |
+| Health check | `HEALTHCHECK` on `/healthz`; path is public, no credentials needed | `PHANTOM_PORT` |
 
-Optional: `PHANTOM_SOCKS=false` (pivot listener), `PHANTOM_GARBLE=true` +
-`INSTALL_GARBLE=1` (obfuscation), `PHANTOM_UPX=true` + `INSTALL_UPX=1` (compression).
-Keep `PHANTOM_TLS` unset — the proxy terminates TLS.
+### All settings
+
+Every variable below is optional and already pre-filled by Coolify. Full
+template: [`.env.example`](.env.example).
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PHANTOM_AUTH` | *(generated)* | Dashboard `user:password`; empty generates one |
+| `PHANTOM_PSK` | *(generated)* | Beacon key, 64 hex chars (`openssl rand -hex 32`) |
+| `PHANTOM_DEFAULT_PSK` | `false` | `true` reuses the shipped dev key instead of a random one |
+| `PHANTOM_PUBLIC_URL` | *(auto)* | Pin the callback URL instead of deriving it from the request |
+| `PHANTOM_HOST` | `0.0.0.0` | Listen address, must stay `0.0.0.0` behind the proxy |
+| `PHANTOM_PORT` | `80` | Listen port, keep it in sync with *Ports Exposes* |
+| `PHANTOM_TLS` | `false` | Keep off — the proxy terminates TLS |
+| `PHANTOM_LOG` | `info` | Uvicorn log level |
+| `PHANTOM_DATA` / `PHANTOM_BUILDS` | `/data`, `/data/builds` | Keep on the volume |
+| `PHANTOM_VENDOR` | `Microsoft Corporation` | PE metadata company on artifacts |
+| `PHANTOM_ENCRYPT` / `PHANTOM_METADATA` | `true` | Seal the embedded implant / apply metadata + icon |
+| `PHANTOM_GARBLE` / `PHANTOM_UPX` | `false` | Obfuscation / compression, requires `INSTALL_GARBLE=1` / `INSTALL_UPX=1` build arg |
+| `PHANTOM_SIGN_PFX` / `PHANTOM_SIGN_PASS` | *(empty)* | Authenticode-sign every artifact |
+| `PHANTOM_SOCKS`, `PHANTOM_SOCKS_HOST`, `PHANTOM_SOCKS_PORT` | `true`, `127.0.0.1`, `1080` | SOCKS pivot listener |
+| `PHANTOM_CERT` / `PHANTOM_KEY` | `/app/server/certs/server.{crt,key}` | Only used when `PHANTOM_TLS=true` |
 
 The container compiles payloads on demand: keep the `/data` volume (without it a
 redeploy rotates the PSK and breaks every bot built before) and give it ~1.5 GB RAM.
@@ -97,12 +123,13 @@ docker logs phantom | grep 'dashboard login'     # generated credentials
 
 ### Compose
 
-Uncomment the `ports:` block in `docker-compose.yml` for local access, then:
-
 ```sh
-docker compose up -d
+cp .env.example .env          # optional: works without it too
+docker compose up -d --build
 docker compose logs | grep 'dashboard login'
 ```
+
+Uncomment the `ports:` block in `docker-compose.yml` for local access.
 
 ---
 
@@ -176,11 +203,13 @@ osslsigncode sign -certs cert.pem -key key.pem -in in.exe -out out.exe
 ## Layout
 
 ```
-implant/       Go beacon (cross platform) + stealth + live media
-server/        FastAPI C2, builder, binder stub, dashboard, crypto
-fileless/      memfd loader template
-rootkit/       Linux LKM
-Dockerfile     Coolify-ready image
+implant/            Go beacon (cross platform) + stealth + live media
+server/             FastAPI C2, builder, binder stub, dashboard, crypto
+fileless/           memfd loader template
+rootkit/            Linux LKM
+Dockerfile          Coolify-ready image
+docker-compose.yml  Coolify service definition (every setting = env var)
+.env.example        env template to paste into Coolify
 ```
 
 ## API quick reference

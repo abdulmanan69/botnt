@@ -6,6 +6,11 @@ __pycache__/
 *.pyc
 .venv/
 
+# environment (keep the template)
+.env
+.env.local
+.env.*.local
+
 # toolchains / artifacts
 .tmp/
 *.exe

