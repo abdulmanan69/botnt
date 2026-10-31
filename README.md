@@ -81,6 +81,37 @@ template: [`.env.example`](.env.example).
 The container compiles payloads on demand: keep the `/data` volume (without it a
 redeploy rotates the PSK and breaks every bot built before) and give it ~1.5 GB RAM.
 
+### Driving the deploy through MCP
+
+Coolify runs an MCP server, so an agent can create, configure and deploy this
+resource without the UI: `http://76.13.223.28:8000/mcp` (Streamable HTTP,
+bearer token). Create a token in Coolify → **Keys & Tokens** → *API tokens*.
+
+Any MCP client can be pointed at it:
+
+```json
+{
+  "mcpServers": {
+    "coolify": {
+      "type": "http",
+      "url": "http://76.13.223.28:8000/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
+```
+
+Or use the bundled helper, no client needed:
+
+```sh
+export COOLIFY_TOKEN="<token>"
+./tools/coolify-mcp.ps1 -ListTools          # see what the server offers
+./tools/coolify-mcp.ps1 -Call list_applications -Args '{}'
+```
+
+The endpoint is plain `http` on port 8000, so the token crosses the wire
+unencrypted — fine on a trusted network, otherwise put Coolify behind TLS.
+
 ### `Compose file is not safe to use ... Invalid volume target: contains forbidden character`
 
 Coolify validates `docker-compose.yml` against its own rules *before* it loads
