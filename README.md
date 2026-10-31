@@ -151,6 +151,22 @@ Two instance-level traps hit during the first real deploy:
 The endpoint is plain `http` on port 8000, so the token crosses the wire
 unencrypted — fine on a trusted network, otherwise put Coolify behind TLS.
 
+### Redeploying after a change
+
+`tools/coolify-deploy.ps1` wraps the two REST calls (domain/port fix-up and
+deploy) and then polls `/healthz` until the new build answers:
+
+```sh
+export COOLIFY_TOKEN="<token with read+write+deploy>"
+./tools/coolify-deploy.ps1 -App uwkoh6ttkcrxdwasfznsyfrj \
+  -Fqdn http://uwkoh6ttkcrxdwasfznsyfrj.76.13.223.28.sslip.io
+```
+
+Without a token: push to the tracked branch and press **Deploy** in the Coolify
+UI, or enable the GitHub webhook for the app so a push auto-deploys. Verify with
+`curl -fsS <domain>/healthz` — the answer must include `uptime` and the
+dashboard must serve `/login`.
+
 ### `Compose file is not safe to use ... Invalid volume target: contains forbidden character`
 
 Coolify validates `docker-compose.yml` against its own rules *before* it loads
