@@ -1,9 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" data-accent="amber">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0a0a">
+<script>
+  /* applied before first paint so a light-theme user never gets a dark flash */
+  (function () {
+    try {
+      var t = localStorage.getItem('phantom-theme');
+      var a = localStorage.getItem('phantom-accent') || 'amber';
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (t === 'light') {
+        document.documentElement.classList.remove('dark');
+        if (m) m.content = '#eef0f3';
+      }
+      document.documentElement.dataset.accent = a;
+    } catch (e) { /* storage blocked */ }
+  })();
+</script>
 <meta name="robots" content="noindex">
 <title>Operations · Phantom</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -57,6 +73,8 @@
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3.5h11l3.5 3.5v13H5z"/><path d="M8.5 3.5v6h7v-6M8.5 20.5v-6h7v6"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M9.5 14.5l5-5"/><path d="M8 11L5.5 13.5a4 4 0 105.6 5.6L13.6 16.6M16 13l2.5-2.5a4 4 0 10-5.6-5.6L10.4 7.4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.2A8.2 8.2 0 019.8 4 8.6 8.6 0 1020 14.2z"/></symbol>
 
 </svg>
 
@@ -86,6 +104,14 @@
     </nav>
 
     <div class="side-foot">
+      <div class="theme-bar">
+        <button class="theme-btn" id="theme-btn" type="button" data-theme-toggle title="Switch theme">
+          <svg class="ico sun"><use href="#i-sun"/></svg>
+          <svg class="ico moon"><use href="#i-moon"/></svg>
+          <span data-theme-label>Dark</span>
+        </button>
+        <div class="swatches" id="accents" role="group" aria-label="Accent colour"></div>
+      </div>
       <span class="conn" id="conn" role="status"><span class="dot"></span><b>connecting</b></span>
       <button class="user" id="user-btn" type="button" title="Sign out">
         <span class="avatar" id="user-initials">OP</span>

@@ -6,6 +6,7 @@ import { connect, onEvent } from './socket.js';
 import { api, url } from './api.js';
 import { esc, initials } from './format.js';
 import { toast, modal, cancelModal } from './ui.js';
+import * as theme from './theme.js';
 import { overview } from './views/overview.js';
 import { fleet } from './views/fleet.js';
 import { host } from './views/host.js';
@@ -186,6 +187,12 @@ async function boot() {
   document.getElementById('shortcuts').onclick = help;
   document.getElementById('bell').onclick = () => go(href.activity());
   document.getElementById('user-btn').onclick = logout;
+
+  theme.init();
+  theme.swatches(document.getElementById('accents'));
+  document.querySelectorAll('[data-theme-label]').forEach((el) => {
+    el.textContent = theme.theme() === 'dark' ? 'Dark' : 'Light';
+  });
 
   palette.init();
   store.subscribe(render);

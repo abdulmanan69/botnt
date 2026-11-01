@@ -1,6 +1,7 @@
 /* Environment: control-plane settings, capabilities and health. */
 
 import * as store from '../store.js';
+import * as theme from '../theme.js';
 import { ico, copy, toast } from '../ui.js';
 import { api } from '../api.js';
 import { esc, num } from '../format.js';
@@ -34,6 +35,18 @@ export const environment = {
         </div>
 
         <div class="env-grid">
+          <div class="card">
+            <div class="card-head">${ico('i-eye')}<h3>Appearance</h3></div>
+            <div class="card-body" style="display:grid;gap:11px">
+              <label class="tgl"><input type="checkbox" id="edark"> Dark surfaces</label>
+              <div class="row" style="gap:10px">
+                <span class="muted tiny">Accent</span>
+                <div class="swatches" id="eaccents" role="group" aria-label="Accent colour"></div>
+              </div>
+              <p class="muted tiny">Per browser and instant: stored in <code>localStorage</code>, no server
+                round trip. Dark is the default.</p>
+            </div>
+          </div>
           <div class="card">
             <div class="card-head">${ico('i-network')}<h3>Callback & transport</h3></div>
             <div class="card-body" style="display:grid;gap:10px">
@@ -81,6 +94,12 @@ export const environment = {
         </div>
 `;
     this.tail(root, cfg);
+
+    const dark = root.querySelector('#edark');
+    dark.checked = theme.theme() === 'dark';
+    dark.onchange = () => theme.setTheme(dark.checked ? 'dark' : 'light');
+    theme.swatches(root.querySelector('#eaccents'));
+    document.addEventListener('phantom:theme', () => { dark.checked = theme.theme() === 'dark'; });
 
     const pull = async () => {
       try {

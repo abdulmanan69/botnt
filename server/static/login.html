@@ -1,9 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" data-accent="amber">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0a0a">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('phantom-theme');
+      var a = localStorage.getItem('phantom-accent') || 'amber';
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (t === 'light') {
+        document.documentElement.classList.remove('dark');
+        if (m) m.content = '#eef0f3';
+      }
+      document.documentElement.dataset.accent = a;
+    } catch (e) { /* storage blocked */ }
+  })();
+</script>
 <meta name="robots" content="noindex">
 <title>Sign in · Phantom</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">

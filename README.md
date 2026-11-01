@@ -294,6 +294,21 @@ Presence, queue state and stream flags are pushed over `/ws`; a host is only
 dead session as alive. Keyboard: `Ctrl/⌘ K` palette, `/` filter the fleet,
 `g` + `o/f/p/a/e` jump, `?` shortcut sheet, `Esc` close overlays.
 
+### Appearance
+
+The console is dark by default. The switch at the bottom of the sidebar (also
+*Environment → Appearance*, or the palette command) flips to a light theme and
+picks one of five accents: amber gold, classic blue, violet, cyan or graphite.
+The choice is per browser, stored in `localStorage` as `phantom-theme` /
+`phantom-accent`, applied by an inline script before the first paint (no flash)
+and mirrored to `<meta name="theme-color">`.
+
+Tokens follow the Becxus theme system: graphite surfaces, hairline `#1e1e1e`
+borders, a single accent reserved for brand and focus, an 18 px radius scale,
+soft depth shadows, tabular numerals for all counters and transparent thin
+scrollbars. Body text sits at 17–18:1 contrast in both themes.
+
+
 ---
 
 ## Using the builder

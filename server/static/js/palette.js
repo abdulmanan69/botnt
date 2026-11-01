@@ -3,6 +3,7 @@
 import * as store from './store.js';
 import { go, href } from './router.js';
 import { ico } from './ui.js';
+import * as theme from './theme.js';
 import { esc, presence, STATE_LABEL } from './format.js';
 
 const NAV = [
@@ -19,6 +20,8 @@ const ACTIONS = [
   { label: 'Show online hosts only', icon: 'i-bolt', run: () => { store.setFilter({ state: 'online' }); go(href.fleet()); } },
   { label: 'Show offline hosts', icon: 'i-warn', run: () => { store.setFilter({ state: 'offline' }); go(href.fleet()); } },
   { label: 'Clear filters', icon: 'i-refresh', run: () => { store.setFilter({ q: '', state: 'all' }); go(href.fleet()); } },
+  { label: 'Toggle dark / light theme', icon: 'i-moon', run: () => theme.toggleTheme() },
+  { label: 'Appearance settings', icon: 'i-eye', run: () => go(href.environment()) },
 ];
 
 const root = () => document.getElementById('palette');

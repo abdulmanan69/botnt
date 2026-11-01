@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Northstar · Asset overview (demo)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17243b;
+      --muted: #78859a;
+      --line: #e8edf4;
+      --paper: #fff;
+      --canvas: #f5f7fb;
+      --navy: #101c32;
+      --navy-soft: #1b2b47;
+      --blue: #4f70e8;
+      --blue-soft: #edf1ff;
+      --green: #17815d;
+      --green-soft: #eaf7f1;
+      --amber: #a56a13;
+      --amber-soft: #fff5e3;
+      --red: #bd4d55;
+      --red-soft: #fff0f0;
+      --radius: 14px;
+      font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); color: var(--ink); font-size: 13px; }
+    button, input, select { font: inherit; }
+    button, a, select, input { -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; text-decoration: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid #9aabff;
+      outline-offset: 2px;
+    }
+    .shell { min-height: 100vh; display: grid; grid-template-columns: 238px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; padding: 22px 14px 16px;
+      display: flex; flex-direction: column; color: #dce5f4; background: var(--navy);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 24px; }
+    .brand-mark {
+      display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
+      color: #fff; background: linear-gradient(145deg, #718cff, #4f70e8); font-weight: 750;
+      box-shadow: 0 6px 16px #324eb05c;
+    }
+    .brand-name { font-weight: 700; font-size: 15px; letter-spacing: -.02em; }
+    .brand-caption { margin-top: 2px; color: #8d9cb4; font-size: 10px; }
+    .nav-label { padding: 17px 11px 8px; color: #7e8da5; font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+    .nav-link {
+      min-height: 39px; display: flex; align-items: center; gap: 11px; padding: 0 11px;
+      border-radius: 9px; color: #aebbd0; font-size: 12px; font-weight: 550;
+    }
+    .nav-link:hover { color: #fff; background: #ffffff0d; }
+    .nav-link.active { color: #fff; background: #ffffff16; box-shadow: inset 2px 0 #8297ff; }
+    .nav-icon { width: 17px; color: #91a1bb; text-align: center; font-size: 14px; }
+    .sidebar-foot { margin-top: auto; padding: 13px 10px 0; border-top: 1px solid #ffffff17; color: #93a2b9; }
+    .demo-note { display: flex; gap: 8px; align-items: flex-start; font-size: 10px; line-height: 1.55; }
+    .demo-note b { color: #e6ecf7; font-weight: 600; }
+    .demo-dot { flex: 0 0 auto; margin-top: 4px; width: 7px; height: 7px; border-radius: 50%; background: #90a4ff; }
+    .main { min-width: 0; }
+    .topbar {
+      height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 0 clamp(20px, 3vw, 42px); background: #ffffffd9; border-bottom: 1px solid var(--line);
+    }
+    .breadcrumb { color: var(--muted); font-size: 11px; }
+    .breadcrumb strong { color: var(--ink); font-weight: 650; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .read-only {
+      display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px;
+      border: 1px solid #dfe6f3; border-radius: 999px; background: #fff; color: #56647a;
+      font-size: 10px; font-weight: 650;
+    }
+    .read-only span { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+    .avatar { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; background: #edf0fb; color: #5368bc; font-size: 10px; font-weight: 700; }
+    .content { width: min(1440px, 100%); margin: 0 auto; padding: 30px clamp(20px, 3vw, 42px) 48px; }
+    .page-heading { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+    .eyebrow { margin-bottom: 7px; color: var(--blue); font-size: 9px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(24px, 3vw, 30px); letter-spacing: -.045em; line-height: 1.15; }
+    .subheading { margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .date-chip { padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); color: #536178; font-size: 10px; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 16px; }
+    .stat, .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: 0 5px 20px #1c31530a; }
+    .stat { min-height: 111px; padding: 15px 16px; }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .stat-icon { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 8px; color: var(--blue); background: var(--blue-soft); font-size: 13px; }
+    .stat-value { margin-top: 10px; font-size: 25px; font-weight: 680; letter-spacing: -.04em; }
+    .stat-foot { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .stat-foot strong { color: var(--green); font-weight: 650; }
+    .overview-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(255px, .85fr); gap: 15px; margin-bottom: 16px; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 17px 12px; }
+    .panel-title { font-size: 12px; font-weight: 680; letter-spacing: -.01em; }
+    .panel-subtitle { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .period { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; color: #64728a; background: #fff; font-size: 9px; }
+    .chart-wrap { padding: 0 13px 12px; }
+    .chart { display: block; width: 100%; height: auto; }
+    .chart-label { fill: #8a97aa; font-size: 9px; font-family: inherit; }
+    .chart-grid { stroke: #edf0f5; stroke-width: 1; }
+    .chart-area { fill: url(#area); }
+    .chart-line { fill: none; stroke: #5875e9; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .legend { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
+    .legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+    .health-body { padding: 4px 17px 16px; }
+    .health-score { display: flex; align-items: center; gap: 13px; padding: 9px 0 15px; }
+    .score-ring { display: grid; place-items: center; width: 58px; height: 58px; flex: 0 0 auto; border-radius: 50%; background: conic-gradient(#4dbe8a 0 88%, #edf2f5 88% 100%); position: relative; }
+    .score-ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: #fff; }
+    .score-ring b { position: relative; z-index: 1; font-size: 14px; }
+    .health-summary b { display: block; margin-bottom: 3px; font-size: 12px; }
+    .health-summary span { color: var(--muted); font-size: 9px; }
+    .health-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid #f0f2f6; color: #68768b; font-size: 10px; }
+    .health-row strong { color: var(--ink); font-size: 10px; font-weight: 650; }
+    .health-row .good { color: var(--green); }
+    .table-panel { overflow: hidden; }
+    .table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 17px 13px; }
+    .search { position: relative; flex: 1 1 210px; max-width: 320px; }
+    .search span { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); color: #96a1b2; font-size: 13px; }
+    .search input, .filter {
+      width: 100%; height: 33px; border: 1px solid var(--line); border-radius: 8px;
+      color: #35435a; background: #fff; font-size: 10px;
+    }
+    .search input { padding: 0 10px 0 30px; }
+    .search input::placeholder { color: #9aa5b5; }
+    .filter { width: auto; min-width: 125px; padding: 0 26px 0 10px; }
+    .table-count { margin-left: auto; color: var(--muted); font-size: 9px; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    thead { background: #fafbfd; }
+    th { padding: 10px 17px; border-top: 1px solid #f0f2f6; border-bottom: 1px solid #edf0f5; color: #8995a8; font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    td { padding: 12px 17px; border-bottom: 1px solid #f0f2f6; color: #59677d; font-size: 10px; white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fbfcff; }
+    .asset-name { display: flex; align-items: center; gap: 9px; min-width: 160px; }
+    .device-icon { display: grid; place-items: center; width: 29px; height: 29px; border: 1px solid #e8edf4; border-radius: 8px; color: #7181a0; background: #f8faff; font-size: 12px; }
+    .asset-name b { display: block; color: #263650; font-size: 10px; font-weight: 650; }
+    .asset-name small { display: block; margin-top: 2px; color: #96a1b1; font-size: 8px; }
+    .status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 999px; font-size: 8px; font-weight: 650; }
+    .status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .status.healthy { color: var(--green); background: var(--green-soft); }
+    .status.review { color: var(--amber); background: var(--amber-soft); }
+    .status.offline { color: #768398; background: #f0f2f6; }
+    .cell-muted { color: #8793a6; }
+    .empty { display: none; padding: 28px 16px; color: var(--muted); text-align: center; font-size: 11px; }
+    .footer-note { padding-top: 11px; color: #95a0b0; font-size: 9px; text-align: right; }
+    @media (max-width: 1050px) {
+      .shell { grid-template-columns: 205px minmax(0, 1fr); }
+      .overview-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 760px) {
+      .shell { display: block; }
+      .sidebar { position: static; height: auto; padding: 12px 14px; }
+      .brand { padding: 0 4px 10px; }
+      .sidebar nav { display: flex; gap: 5px; overflow-x: auto; }
+      .nav-label, .sidebar-foot { display: none; }
+      .nav-link { min-height: 34px; padding: 0 10px; white-space: nowrap; }
+      .topbar { height: 53px; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+      .stat { min-height: 100px; padding: 12px; }
+      .content { padding-top: 22px; }
+    }
+    @media (max-width: 440px) {
+      .breadcrumb { display: none; }
+      .topbar { justify-content: flex-end; }
+      .date-chip { display: none; }
+      .stats { gap: 8px; }
+      .stat-value { font-size: 22px; }
+      .table-tools { padding-right: 12px; padding-left: 12px; }
+      th, td { padding-right: 12px; padding-left: 12px; }
+      .table-count { width: 100%; margin-left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Demo navigation">
+      <a class="brand" href="#overview" aria-label="Northstar asset overview">
+        <span class="brand-mark">N</span>
+        <span><span class="brand-name">northstar</span><span class="brand-caption">Asset insights</span></span>
+      </a>
+      <nav>
+        <div class="nav-label">Workspace</div>
+        <a class="nav-link active" href="#overview"><span class="nav-icon" aria-hidden="true">▦</span>Overview</a>
+        <a class="nav-link" href="#inventory"><span class="nav-icon" aria-hidden="true">▤</span>Asset inventory</a>
+        <a class="nav-link" href="#health"><span class="nav-icon" aria-hidden="true">◉</span>Health &amp; compliance</a>
+        <div class="nav-label">Insights</div>
+        <a class="nav-link" href="#activity"><span class="nav-icon" aria-hidden="true">↗</span>Recent activity</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="demo-note"><span class="demo-dot"></span><span><b>Preview mode</b><br>Illustrative sample data only. This page is not connected to a service.</span></div>
+      </div>
+    </aside>
+
+    <main class="main" id="overview">
+      <header class="topbar">
+        <div class="breadcrumb">Workspace <span aria-hidden="true">/</span> <strong>Asset overview</strong></div>
+        <div class="top-actions">
+          <span class="read-only"><span></span>Read-only demo</span>
+          <span class="avatar" aria-label="Demo user">JD</span>
+        </div>
+      </header>
+      <div class="content">
+        <section class="page-heading" aria-labelledby="page-title">
+          <div>
+            <div class="eyebrow">Workspace overview</div>
+            <h1 id="page-title">Asset health at a glance</h1>
+            <p class="subheading">A clear view of registered company devices and their reported health.</p>
+          </div>
+          <div class="date-chip">Sample snapshot &nbsp;·&nbsp; 1 Nov 2026</div>
+        </section>
+
+        <section class="stats" aria-label="Asset summary">
+          <article class="stat">
+            <div class="stat-top"><span>Registered assets</span><span class="stat-icon" aria-hidden="true">▤</span></div>
+            <div class="stat-value">248</div><div class="stat-foot"><strong>+12</strong> added this month</div>
+          </article>
+          <article class="stat">
+            <div class="stat-top"><span>Reporting normally</span><span class="stat-icon" aria-hidden="true">⌁</span></div>
+            <div class="stat-value">231</div><div class="stat-foot">93% of registered assets</div>
+          </article>
+          <article class="stat">
+            <div class="stat-top"><span>Needs review</span><span class="stat-icon" aria-hidden="true">△</span></div>
+            <div class="stat-value">11</div><div class="stat-foot">Review recommended</div>
+          </article>
+          <article class="stat">
+            <div class="stat-top"><span>Policy coverage</span><span class="stat-icon" aria-hidden="true">✓</span></div>
+            <div class="stat-value">96.4%</div><div class="stat-foot"><strong>+1.8%</strong> since last month</div>
+          </article>
+        </section>
+
+        <section class="overview-grid" aria-label="Asset reporting and health">
+          <article class="panel">
+            <div class="panel-heading">
+              <div><div class="panel-title">Reporting assets</div><div class="panel-subtitle">Registered devices reporting in the sample period</div></div>
+              <span class="legend"><i></i>Devices</span>
+            </div>
+            <div class="chart-wrap">
+              <svg class="chart" viewBox="0 0 660 185" role="img" aria-label="Sample trend: reporting assets rising from 196 to 231 over the last seven days">
+                <defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#5875e9" stop-opacity=".2"/><stop offset="1" stop-color="#5875e9" stop-opacity="0"/></linearGradient></defs>
+                <line class="chart-grid" x1="40" y1="26" x2="642" y2="26"/><line class="chart-grid" x1="40" y1="67" x2="642" y2="67"/>
+                <line class="chart-grid" x1="40" y1="108" x2="642" y2="108"/><line class="chart-grid" x1="40" y1="149" x2="642" y2="149"/>
+                <text class="chart-label" x="5" y="29">240</text><text class="chart-label" x="5" y="70">220</text>
+                <text class="chart-label" x="5" y="111">200</text><text class="chart-label" x="5" y="152">180</text>
+                <path class="chart-area" d="M48 124 L145 110 L242 116 L339 83 L436 92 L533 59 L630 45 L630 149 L48 149 Z"/>
+                <path class="chart-line" d="M48 124 L145 110 L242 116 L339 83 L436 92 L533 59 L630 45"/>
+                <circle cx="630" cy="45" r="4" fill="#fff" stroke="#5875e9" stroke-width="2.5"/>
+                <text class="chart-label" x="42" y="171">Oct 26</text><text class="chart-label" x="137" y="171">Oct 27</text>
+                <text class="chart-label" x="234" y="171">Oct 28</text><text class="chart-label" x="331" y="171">Oct 29</text>
+                <text class="chart-label" x="428" y="171">Oct 30</text><text class="chart-label" x="525" y="171">Oct 31</text>
+                <text class="chart-label" x="610" y="171">Nov 1</text>
+              </svg>
+            </div>
+          </article>
+          <article class="panel" id="health">
+            <div class="panel-heading">
+              <div><div class="panel-title">Overall health</div><div class="panel-subtitle">Summary of sample inventory signals</div></div>
+              <span class="period">This week</span>
+            </div>
+            <div class="health-body">
+              <div class="health-score">
+                <div class="score-ring" aria-label="88 percent"><b>88%</b></div>
+                <div class="health-summary"><b>Good standing</b><span>Most assets are reporting normally.</span></div>
+              </div>
+              <div class="health-row"><span>Healthy devices</span><strong class="good">231</strong></div>
+              <div class="health-row"><span>Review recommended</span><strong>11</strong></div>
+              <div class="health-row"><span>Not recently seen</span><strong>6</strong></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel table-panel" id="inventory" aria-labelledby="inventory-title">
+          <div class="panel-heading">
+            <div><div class="panel-title" id="inventory-title">Asset inventory</div><div class="panel-subtitle">Example device records · view and filter only</div></div>
+            <span class="period">Sample records</span>
+          </div>
+          <div class="table-tools">
+            <label class="search"><span aria-hidden="true">⌕</span><input id="asset-search" type="search" placeholder="Search name, owner or department" aria-label="Search sample assets"></label>
+            <label><span class="nav-label" style="position:absolute;clip:rect(0,0,0,0)">Filter by status</span>
+              <select id="status-filter" class="filter" aria-label="Filter by status">
+                <option value="all">All statuses</option><option value="Healthy">Healthy</option>
+                <option value="Review">Review</option><option value="Offline">Not recently seen</option>
+              </select>
+            </label>
+            <span class="table-count" id="result-count" aria-live="polite"></span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th scope="col">Asset</th><th scope="col">Owner</th><th scope="col">Department</th><th scope="col">Platform</th><th scope="col">Last report</th><th scope="col">Status</th></tr></thead>
+              <tbody id="asset-rows"></tbody>
+            </table>
+            <div class="empty" id="empty-state">No sample assets match those filters.</div>
+          </div>
+        </section>
+        <p class="footer-note" id="activity">Independent visual mockup · all names and records are fictional.</p>
+      </div>
+    </main>
+  </div>
+  <script>
+    const assets = [
+      { name: "Design-MBP-14", id: "AST-1048", icon: "▣", owner: "Morgan Lee", department: "Design", platform: "macOS 15.1", report: "4 min ago", status: "Healthy" },
+      { name: "Finance-LT-22", id: "AST-1036", icon: "▰", owner: "Alex Kim", department: "Finance", platform: "Windows 11", report: "8 min ago", status: "Healthy" },
+      { name: "Studio-iMac-03", id: "AST-1012", icon: "▣", owner: "Riley Chen", department: "Creative", platform: "macOS 14.7", report: "22 min ago", status: "Review" },
+      { name: "People-LT-08", id: "AST-0995", icon: "▰", owner: "Jordan Patel", department: "People", platform: "Windows 11", report: "2 hr ago", status: "Healthy" },
+      { name: "Research-LT-17", id: "AST-0974", icon: "▰", owner: "Taylor Brooks", department: "Research", platform: "Windows 10", report: "3 days ago", status: "Offline" },
+      { name: "Ops-MBP-09", id: "AST-0962", icon: "▣", owner: "Casey Nguyen", department: "Operations", platform: "macOS 15.0", report: "11 min ago", status: "Healthy" }
+    ];
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[char]);
+    const rows = document.getElementById("asset-rows");
+    const search = document.getElementById("asset-search");
+    const status = document.getElementById("status-filter");
+    const count = document.getElementById("result-count");
+    const empty = document.getElementById("empty-state");
+    function renderAssets() {
+      const query = search.value.trim().toLowerCase();
+      const filtered = assets.filter((asset) => {
+        const matchesText = [asset.name, asset.id, asset.owner, asset.department, asset.platform]
+          .some((value) => value.toLowerCase().includes(query));
+        return matchesText && (status.value === "all" || asset.status === status.value);
+      });
+      rows.innerHTML = filtered.map((asset) => `<tr>
+        <td><div class="asset-name"><span class="device-icon" aria-hidden="true">${asset.icon}</span><span><b>${escapeHtml(asset.name)}</b><small>${escapeHtml(asset.id)}</small></span></div></td>
+        <td>${escapeHtml(asset.owner)}</td><td>${escapeHtml(asset.department)}</td>
+        <td>${escapeHtml(asset.platform)}</td><td class="cell-muted">${escapeHtml(asset.report)}</td>
+        <td><span class="status ${asset.status === "Healthy" ? "healthy" : asset.status === "Review" ? "review" : "offline"}">${escapeHtml(asset.status === "Offline" ? "Not recently seen" : asset.status)}</span></td>
+      </tr>`).join("");
+      count.textContent = `${filtered.length} of ${assets.length} sample assets`;
+      empty.style.display = filtered.length ? "none" : "block";
+    }
+    search.addEventListener("input", renderAssets);
+    status.addEventListener("change", renderAssets);
+    renderAssets();
+  </script>
+</body>
+</html>

