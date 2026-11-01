@@ -7,22 +7,22 @@
   <title>Northstar · Asset overview (demo)</title>
   <style>
     :root {
-      color-scheme: light;
-      --ink: #17243b;
-      --muted: #78859a;
-      --line: #e8edf4;
-      --paper: #fff;
-      --canvas: #f5f7fb;
-      --navy: #101c32;
-      --navy-soft: #1b2b47;
-      --blue: #4f70e8;
-      --blue-soft: #edf1ff;
-      --green: #17815d;
-      --green-soft: #eaf7f1;
-      --amber: #a56a13;
-      --amber-soft: #fff5e3;
-      --red: #bd4d55;
-      --red-soft: #fff0f0;
+      color-scheme: dark;
+      --muted: #8290a4;
+      --line: #202a37;
+      --paper: #101720;
+      --canvas: #090d13;
+      --navy: #080c12;
+      --navy-soft: #111a27;
+      --blue: #8298ff;
+      --blue-soft: #1a2340;
+      --green: #35cf8a;
+      --green-soft: #10291f;
+      --amber: #f0b547;
+      --amber-soft: #302414;
+      --red: #f1797d;
+      --red-soft: #301a20;
+      --ink: #edf2f9;
       --radius: 14px;
       font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
       font-synthesis: none;
@@ -148,6 +148,39 @@
     .cell-muted { color: #8793a6; }
     .empty { display: none; padding: 28px 16px; color: var(--muted); text-align: center; font-size: 11px; }
     .footer-note { padding-top: 11px; color: #95a0b0; font-size: 9px; text-align: right; }
+    body { background: radial-gradient(900px 480px at 100% -15%, #142033 0%, transparent 62%), var(--canvas); }
+    .topbar { background: #0b1018e8; border-color: var(--line); }
+    .breadcrumb { color: #75839a; }
+    .breadcrumb strong { color: var(--ink); }
+    .read-only, .date-chip, .period, .search input, .filter {
+      border-color: #293545; background: #111822; color: #c1ccdc;
+    }
+    .avatar { background: #202b42; color: #aab8ff; }
+    .subheading, .panel-subtitle, .stat-top { color: #8592a6; }
+    .stat, .panel { border-color: #1e2732; background: linear-gradient(180deg, #111821, #0e141c); box-shadow: 0 8px 26px #00000024; }
+    .stat-icon { color: #9babff; background: #1b2440; }
+    .stat-foot, .health-summary span { color: #79879b; }
+    .panel-title, .health-summary b { color: #e8edf5; }
+    .chart-grid { stroke: #222c38; }
+    .chart-label { fill: #748197; }
+    .score-ring { background: conic-gradient(#35cf8a 0 88%, #26313c 88% 100%); }
+    .score-ring::before { background: #111821; }
+    .health-row { border-color: #222b36; color: #94a0b1; }
+    .health-row strong { color: #e1e8f2; }
+    .search input::placeholder { color: #657187; }
+    thead { background: #111821; }
+    th { border-color: #26313d; color: #75839a; }
+    td { border-color: #1e2732; color: #a9b5c6; }
+    tbody tr:hover { background: #ffffff06; }
+    .asset-name b { color: #e3eaf4; }
+    .asset-name small { color: #748197; }
+    .device-icon { border-color: #293545; color: #9aa9c1; background: #141d29; }
+    .status.healthy { color: #49d398; background: #11291f; }
+    .status.review { color: #f0bd62; background: #302515; }
+    .status.offline { color: #9aa6b8; background: #202832; }
+    .cell-muted { color: #8290a4; }
+    .empty { color: #8390a3; }
+    .footer-note { color: #657187; }
     @media (max-width: 1050px) {
       .shell { grid-template-columns: 205px minmax(0, 1fr); }
       .overview-grid { grid-template-columns: minmax(0, 1fr); }

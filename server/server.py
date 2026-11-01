@@ -216,8 +216,15 @@ async def guard(request: Request, call_next):
         request.scope["path"] = path
         request.scope["raw_path"] = path.encode()
 
+    def _finalize(response):
+        # the dashboard ships as loose files: always revalidate so a theme/UI
+        # update is picked up on the next load instead of a stale bundle
+        if path == "/" or path.startswith(("/style.css", "/views.css", "/js/", "/login.js")):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     if path.startswith(OPEN_PATHS):
-        return await call_next(request)
+        return _finalize(await call_next(request))
 
     token = request.query_params.get("token", "")
     if not _authorized(request.headers, token, request.cookies):
@@ -233,7 +240,7 @@ async def guard(request: Request, call_next):
     if token and secrets.compare_digest(token, AUTH_PASS):
         response.set_cookie(TOKEN_COOKIE, token, httponly=True, samesite="lax",
                             secure=_secure(request), max_age=TOKEN_TTL)
-    return response
+    return _finalize(response)
 
 
 @app.post("/api/login")
