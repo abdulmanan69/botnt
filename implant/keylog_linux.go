@@ -132,8 +132,6 @@ func klTake() string {
 	return string(b)
 }
 
-
-
 func findKeyboard() string {
 	if m, _ := filepath.Glob("/dev/input/by-path/*kbd*"); len(m) > 0 {
 		return m[0]

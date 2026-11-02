@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright
 
 VIEWS = ["overview", "fleet", "payloads", "activity", "environment"]
 TOOLS = ["console", "files", "keylog", "surveillance", "network", "socks",
-         "persistence", "rootkit", "info", "processes"]
+         "persistence", "rootkit", "recon", "stealth", "info", "processes"]
 
 URL = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8014").rstrip("/")
 AUTH = sys.argv[2] if len(sys.argv) > 2 else "admin:secret"

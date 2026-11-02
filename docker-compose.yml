@@ -60,6 +60,15 @@ services:
       PHANTOM_SIGN_PFX: ${PHANTOM_SIGN_PFX:-}         # path to a .pfx to Authenticode sign
       PHANTOM_SIGN_PASS: ${PHANTOM_SIGN_PASS:-}
 
+      # ---- anti-trace / evasion ------------------------------------------
+      PHANTOM_COVER: ${PHANTOM_COVER:-}               # site a stranger gets bounced to at /
+      PHANTOM_SERVER: ${PHANTOM_SERVER:-nginx}        # Server header (masks uvicorn)
+      PHANTOM_RANDOMIZE: ${PHANTOM_RANDOMIZE:-true}   # random vendor + random artifact size
+      PHANTOM_PAD: ${PHANTOM_PAD:-true}               # random filler, no stable hash
+      PHANTOM_SCRUB: ${PHANTOM_SCRUB:-true}           # erase Go build-info fingerprints
+      PHANTOM_STEALTH: ${PHANTOM_STEALTH:-auto}       # auto = AMSI/ETW patch + sandbox stall
+      PHANTOM_WORKERS: ${PHANTOM_WORKERS:-4}          # parallel command execution
+
       # ---- SOCKS pivot ----------------------------------------------------
       PHANTOM_SOCKS: ${PHANTOM_SOCKS:-true}
       PHANTOM_SOCKS_HOST: ${PHANTOM_SOCKS_HOST:-127.0.0.1}

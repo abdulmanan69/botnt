@@ -35,8 +35,8 @@ type mediaFrame struct {
 
 // pushFrame sends media bytes as the raw request body — no base64 anywhere.
 func pushFrame(f mediaFrame) {
-	url := fmt.Sprintf("%s/api/media/push?sid=%s&kind=%s&seq=%d&fmt=%s",
-		serverURL, urlq(sid()), f.Kind, f.Seq, f.Fmt)
+	url := fmt.Sprintf("%s?sid=%s&kind=%s&seq=%d&fmt=%s",
+		endpoint("push"), urlq(sid()), f.Kind, f.Seq, f.Fmt)
 	ctype := "application/octet-stream"
 	if f.Fmt == "jpeg" {
 		ctype = "image/jpeg"
@@ -48,14 +48,15 @@ func urlq(s string) string {
 	return strings.ReplaceAll(s, " ", "%20")
 }
 
-// postRaw posts a binary body, discarding the response.
+// postRaw posts a sealed binary body, discarding the response.
 func postRaw(url string, body []byte, ctype string) {
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(seal(body)))
 	if err != nil {
 		return
 	}
 	req.Header.Set("Content-Type", ctype)
-	req.Header.Set("User-Agent", userAgent)
+	setHeaders(req)
+	req.Header.Set("Content-Type", ctype)
 	resp, err := client.Do(req)
 	if err != nil {
 		return
@@ -66,14 +67,14 @@ func postRaw(url string, body []byte, ctype string) {
 
 // uploadBlob stores a capture server-side and returns its URL.
 func uploadBlob(kind, name string, body []byte) (string, error) {
-	url := fmt.Sprintf("%s/api/media/upload?sid=%s&kind=%s&name=%s",
-		serverURL, urlq(sid()), kind, urlq(name))
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	url := fmt.Sprintf("%s?sid=%s&kind=%s&name=%s",
+		endpoint("upload"), urlq(sid()), kind, urlq(name))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(seal(body)))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("User-Agent", userAgent)
+	setHeaders(req)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -281,7 +282,6 @@ func readOneJPEG(br *bufio.Reader) ([]byte, error) {
 	}
 }
 
-
 // ---------- microphone ----------
 
 func micStreamStart(device string) Result {
@@ -399,4 +399,3 @@ func streamStatus() Result {
 	return Result{OK: true, Out: fmt.Sprintf(`{"cam":%v,"mic":%v}`,
 		camCancel != nil, micCancel != nil)}
 }
-
