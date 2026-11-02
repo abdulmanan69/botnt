@@ -1,4 +1,4 @@
-/* Overview: fleet health at a glance. */
+﻿/* Overview: fleet health at a glance. */
 
 import * as store from '../store.js';
 import { href } from '../router.js';

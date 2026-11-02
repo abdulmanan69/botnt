@@ -1,4 +1,4 @@
-/* Fleet: every host, grouped by derived presence. */
+﻿/* Fleet: every host, grouped by derived presence. */
 
 import * as store from '../store.js';
 import { href, go } from '../router.js';

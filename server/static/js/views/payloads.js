@@ -1,4 +1,4 @@
-/* Payloads: bind a decoy document or emit a raw implant. */
+﻿/* Payloads: bind a decoy document or emit a raw implant. */
 
 import * as store from '../store.js';
 import { api, url } from '../api.js';

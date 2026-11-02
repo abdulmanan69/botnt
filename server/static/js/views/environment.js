@@ -1,4 +1,4 @@
-/* Environment: control-plane settings, capabilities and health. */
+﻿/* Environment: control-plane settings, capabilities and health. */
 
 import * as store from '../store.js';
 import * as theme from '../theme.js';

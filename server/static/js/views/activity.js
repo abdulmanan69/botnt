@@ -1,4 +1,4 @@
-/* Activity: full audit trail. */
+﻿/* Activity: full audit trail. */
 
 import * as store from '../store.js';
 import { href } from '../router.js';
